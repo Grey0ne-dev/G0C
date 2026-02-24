@@ -57,8 +57,9 @@ Function overloading supported via name mangling:
 - **Arithmetic**: ADD, SUB, MUL, DIV, MOD
 - **Control**: JMP, JZ, JNZ, JL, JG, JLE, JGE, CMP
 - **Functions**: CALL, RET, PUSH_BP, POP_BP
-- **Memory**: LOAD, STORE, LOAD_BP, STORE_BP
+- **Memory**: LOAD, STORE, LOAD_BP, STORE_BP, LOAD_INDIRECT, STORE_INDIRECT, ALLOC, FREE
 - **I/O**: PRINT, INPUT, PRINT_STR, INPUT_STR, PUSH_STR
+- **FPU/Float**: FPUSH, FPOP, FADD, FSUB, FMUL, FDIV, FLOAD, FSTORE, FPRINT, FCMP, FNEG, FDUP, INT_TO_FP, FP_TO_INT
 - **Control**: HALT
 
 ## Frontend Issues Fixed
