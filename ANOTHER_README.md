@@ -87,7 +87,7 @@ This demonstrates the full pipeline working correctly.
 
 ### Note on Implementation History
 
-Originally, the Virtual Machine backend was written in **NASM x86_64 assembly**, but was later fully **rewritten in C for comfort, portability, and easier debugging**. The current VM is cleaner and more maintainable while preserving the original low-level design philosophy.
+Originally, the Virtual Machine backend was written in **NASM x86_64 assembly**, but was later fully **rewritten in C++ for comfort, portability, and easier debugging**. The current VM is cleaner and more maintainable while preserving the original low-level design philosophy.
 
 ---
 
@@ -126,13 +126,14 @@ Originally, the Virtual Machine backend was written in **NASM x86_64 assembly**,
 * Fetch-decode-execute loop
 * Instruction set includes:
 
-  * `LOAD_CONST`
-  * `LOAD_LOCAL`
-  * `STORE_LOCAL`
-  * `ADD`, `SUB`, `MUL`, `DIV`
-  * `LT`, `GT`, `EQ`
-  * `JMP`, `JMP_IF_FALSE`
-  * `PRINT`
+  * **Stack**: PUSH, POP, DUP, SWAP
+  * **Arithmetic**: ADD, SUB, MUL, DIV, MOD
+  * **Control**: JMP, JZ, JNZ, JL, JG, JLE, JGE, CMP
+  * **Functions**: CALL, RET, PUSH_BP, POP_BP
+  * **Memory**: LOAD, STORE, LOAD_BP, STORE_BP, LOAD_INDIRECT, STORE_INDIRECT, ALLOC, FREE
+  * **I/O**: PRINT, INPUT, PRINT_STR, INPUT_STR, PUSH_STR
+  * **FPU/Float**: FPUSH, FPOP, FADD, FSUB, FMUL, FDIV, FPRINT, FCMP, FNEG, FDUP, INT_TO_FP, FP_TO_INT
+  * **Control**: HALT
 
 ---
 
