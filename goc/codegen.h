@@ -43,6 +43,23 @@ enum class Opcode : uint8_t {
     STORE_INDIRECT = 0x28,  // Pop addr, pop value, store mem[addr] = value
     ALLOC       = 0x29,     // Pop size, allocate heap memory, push address
     FREE        = 0x2A,     // Pop address, free heap memory
+
+    // FPU (x87-style circular register stack, 8 slots)
+    FPUSH       = 0x30,  // 4-byte float immediate → push to FPU stack
+    FPOP        = 0x31,  // discard FPU ST0
+    FADD        = 0x32,  // b=fpop, a=fpop, fpush(a+b)
+    FSUB        = 0x33,  // b=fpop, a=fpop, fpush(a-b)
+    FMUL        = 0x34,  // b=fpop, a=fpop, fpush(a*b)
+    FDIV        = 0x35,  // b=fpop, a=fpop, fpush(a/b)
+    FLOAD       = 0x36,  // read addr(int32), push float_memory[addr] to FPU
+    FSTORE      = 0x37,  // read addr(int32), pop FPU ST0 → float_memory[addr]
+    FPRINT      = 0x38,  // print ST0, pop FPU
+    FCMP        = 0x39,  // b=fpop, a=fpop, set cmp_flag = (a<b)?-1:(a>b)?1:0
+    FNEG        = 0x3A,  // ST0 = -ST0
+    FDUP        = 0x3B,  // push copy of ST0
+    INT_TO_FP   = 0x3C,  // pop int stack, convert, push to FPU
+    FP_TO_INT   = 0x3D,  // pop FPU, truncate, push to int stack
+
     HALT        = 0xFF
 };
 
@@ -55,6 +72,7 @@ struct Symbol {
     int param_count; // For functions
     bool is_array;   // True if this is an array or pointer
     bool is_heap_allocated; // True if allocated with "new"
+    bool is_float;   // True if this is a float/double variable
 };
 
 class CodeGenerator {
@@ -131,10 +149,16 @@ private:
     // Symbol table management
     void enterScope();
     void exitScope();
-    void addVariable(const std::string& name, int offset, bool is_array = false, bool is_heap_allocated = false);
+    void addVariable(const std::string& name, int offset, bool is_array = false, bool is_heap_allocated = false, bool is_float = false);
     void addParameter(const std::string& name, int offset);
     void addFunction(const std::string& name, int address, int param_count);
     Symbol* findSymbol(const std::string& name);
+
+    // Float helpers
+    static bool isFloatLiteralStr(const std::string& s);
+    static bool isFloatType(const std::vector<std::string>& typeTokens);
+    bool isFloatExpr(const ASTNode* node);
+    void emitFloat32(float value);
 };
 
 #endif // CODEGEN_H

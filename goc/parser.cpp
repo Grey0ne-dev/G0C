@@ -903,8 +903,8 @@ ASTNodePtr Parser::parseVarDeclaration() {
     // DEBUG: // std::cerr << "DEBUG parseVarDeclaration: After parseType, current token '" << peek().value
 // DEBUG_CONT:               << "' type: " << static_cast<int>(peek().type) << std::endl;
     // DEBUG: // std::cerr << "DEBUG: Type tokens: ";
-    for (const auto& t : type) std::cerr << t << " ";
-    std::cerr << std::endl;
+    // DEBUG: // for (const auto& t : type) std::cerr << t << " ";
+    // DEBUG: // std::cerr << std::endl;
 
     // Must have at least one declarator
     if (!check(TokenType::IDENTIFIER)) {

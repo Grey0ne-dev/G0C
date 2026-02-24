@@ -1,0 +1,4 @@
+/home/grey/Work/tries/G0C/goc/CMakeFiles/goc.dir
+/home/grey/Work/tries/G0C/goc/CMakeFiles/vm.dir
+/home/grey/Work/tries/G0C/goc/CMakeFiles/edit_cache.dir
+/home/grey/Work/tries/G0C/goc/CMakeFiles/rebuild_cache.dir

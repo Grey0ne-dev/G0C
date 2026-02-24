@@ -9,9 +9,12 @@ VirtualMachine::VirtualMachine()
     : instruction_pointer(0), halted(false), error_flag(false),
       debug_mode(false), base_pointer(0), next_object_id(1),
       cmp_flag(0), instruction_count(0), max_stack_size(0),
+      fpu_top(0),
       heap_start_addr(10000) {  // Heap starts at address 10000
     memory.resize(1024, 0);  // 1KB initial static memory
     heap.resize(4096, 0);    // 4KB initial heap
+    float_memory.resize(1024, 0.0f);
+    std::fill(fpu_regs, fpu_regs + 8, 0.0f);
 }
 
 VirtualMachine::~VirtualMachine() {
@@ -93,6 +96,9 @@ void VirtualMachine::reset() {
     cmp_flag = 0;
     instruction_count = 0;
     max_stack_size = 0;
+    fpu_top = 0;
+    std::fill(fpu_regs, fpu_regs + 8, 0.0f);
+    std::fill(float_memory.begin(), float_memory.end(), 0.0f);
     std::fill(memory.begin(), memory.end(), 0);
 }
 
@@ -442,6 +448,108 @@ void VirtualMachine::executeInstruction() {
             break;
         }
         
+        // --- FPU instructions ---
+        case VMOpcode::FPUSH: {
+            float val = readFloat32();
+            fpush(val);
+            break;
+        }
+        
+        case VMOpcode::FPOP:
+            fpop();
+            break;
+        
+        case VMOpcode::FADD: {
+            float b = fpop();
+            float a = fpop();
+            fpush(a + b);
+            break;
+        }
+        
+        case VMOpcode::FSUB: {
+            float b = fpop();
+            float a = fpop();
+            fpush(a - b);
+            break;
+        }
+        
+        case VMOpcode::FMUL: {
+            float b = fpop();
+            float a = fpop();
+            fpush(a * b);
+            break;
+        }
+        
+        case VMOpcode::FDIV: {
+            float b = fpop();
+            float a = fpop();
+            if (b == 0.0f) {
+                error("FPU division by zero");
+                return;
+            }
+            fpush(a / b);
+            break;
+        }
+        
+        case VMOpcode::FLOAD: {
+            int32_t addr = readInt32();
+            if (addr < 0) { error("Negative FPU memory address"); return; }
+            if (static_cast<size_t>(addr) >= float_memory.size()) {
+                error("FPU memory access out of bounds");
+                return;
+            }
+            fpush(float_memory[static_cast<size_t>(addr)]);
+            break;
+        }
+        
+        case VMOpcode::FSTORE: {
+            int32_t addr = readInt32();
+            float val = fpop();
+            if (addr < 0) { error("Negative FPU memory address"); return; }
+            if (static_cast<size_t>(addr) >= float_memory.size()) {
+                float_memory.resize(static_cast<size_t>(addr) + 256, 0.0f);
+            }
+            float_memory[static_cast<size_t>(addr)] = val;
+            break;
+        }
+        
+        case VMOpcode::FPRINT: {
+            float val = fpop();
+            std::cout << val;
+            break;
+        }
+        
+        case VMOpcode::FCMP: {
+            float b = fpop();
+            float a = fpop();
+            cmp_flag = (a < b) ? -1 : (a > b) ? 1 : 0;
+            break;
+        }
+        
+        case VMOpcode::FNEG: {
+            float val = fpop();
+            fpush(-val);
+            break;
+        }
+        
+        case VMOpcode::FDUP: {
+            float val = fpeek();
+            fpush(val);
+            break;
+        }
+        
+        case VMOpcode::INT_TO_FP: {
+            int32_t ival = pop();
+            fpush(static_cast<float>(ival));
+            break;
+        }
+        
+        case VMOpcode::FP_TO_INT: {
+            float fval = fpop();
+            push(static_cast<int32_t>(fval));
+            break;
+        }
+        
         case VMOpcode::HALT:
             halted = true;
             break;
@@ -684,6 +792,34 @@ void VirtualMachine::error(const std::string& msg) {
     halted = true;
 }
 
+// FPU circular stack (x87-style, 8 slots)
+void VirtualMachine::fpush(float value) {
+    fpu_top = (fpu_top - 1 + 8) % 8;
+    fpu_regs[fpu_top] = value;
+}
+
+float VirtualMachine::fpop() {
+    float val = fpu_regs[fpu_top];
+    fpu_regs[fpu_top] = 0.0f;
+    fpu_top = (fpu_top + 1) % 8;
+    return val;
+}
+
+float VirtualMachine::fpeek() const {
+    return fpu_regs[fpu_top];
+}
+
+float VirtualMachine::readFloat32() {
+    if (instruction_pointer + 4 > bytecode.size()) {
+        error("Unexpected end of bytecode reading float32");
+        return 0.0f;
+    }
+    float value;
+    std::memcpy(&value, &bytecode[instruction_pointer], sizeof(float));
+    instruction_pointer += 4;
+    return value;
+}
+
 void VirtualMachine::dumpStack() const {
     std::cout << "\n=== Stack Dump ===" << std::endl;
     std::cout << "Size: " << stack.size() << std::endl;
@@ -753,10 +889,20 @@ void VirtualMachine::disassemble() const {
             case VMOpcode::LOAD_BP:
             case VMOpcode::STORE_BP:
             case VMOpcode::PUSH_STR:
+            case VMOpcode::FLOAD:
+            case VMOpcode::FSTORE:
                 if (ip + 4 <= bytecode.size()) {
                     int32_t value;
                     std::memcpy(&value, &bytecode[ip], sizeof(int32_t));
                     std::cout << " " << value;
+                    ip += 4;
+                }
+                break;
+            case VMOpcode::FPUSH:
+                if (ip + 4 <= bytecode.size()) {
+                    float fvalue;
+                    std::memcpy(&fvalue, &bytecode[ip], sizeof(float));
+                    std::cout << " " << fvalue;
                     ip += 4;
                 }
                 break;
@@ -820,6 +966,20 @@ std::string VirtualMachine::opcodeToString(VMOpcode op) const {
         case VMOpcode::STORE_INDIRECT: return "STORE_INDIRECT";
         case VMOpcode::ALLOC: return "ALLOC";
         case VMOpcode::FREE: return "FREE";
+        case VMOpcode::FPUSH: return "FPUSH";
+        case VMOpcode::FPOP: return "FPOP";
+        case VMOpcode::FADD: return "FADD";
+        case VMOpcode::FSUB: return "FSUB";
+        case VMOpcode::FMUL: return "FMUL";
+        case VMOpcode::FDIV: return "FDIV";
+        case VMOpcode::FLOAD: return "FLOAD";
+        case VMOpcode::FSTORE: return "FSTORE";
+        case VMOpcode::FPRINT: return "FPRINT";
+        case VMOpcode::FCMP: return "FCMP";
+        case VMOpcode::FNEG: return "FNEG";
+        case VMOpcode::FDUP: return "FDUP";
+        case VMOpcode::INT_TO_FP: return "INT_TO_FP";
+        case VMOpcode::FP_TO_INT: return "FP_TO_INT";
         case VMOpcode::HALT: return "HALT";
         default: return "UNKNOWN";
     }

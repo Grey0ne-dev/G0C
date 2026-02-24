@@ -90,7 +90,12 @@ void CodeGenerator::genStatement(const ASTNode* node) {
             auto expr = static_cast<const ExprStmt*>(node);
             if (expr->expr) {
                 genExpression(expr->expr.get());
-                emit(Opcode::POP); // Discard expression result
+                // Float expressions leave result on FPU; int expressions on int stack
+                if (isFloatExpr(expr->expr.get())) {
+                    emit(Opcode::FPOP);
+                } else {
+                    emit(Opcode::POP); // Discard expression result
+                }
             }
             break;
         }
@@ -137,16 +142,29 @@ void CodeGenerator::genVarDecl(const VarDecl* decl) {
     
     bool is_array = decl->isArray || is_heap_array;
     
+    // Detect float/double variable type (non-pointer, non-array)
+    bool is_float_var = !is_pointer && !is_array && isFloatType(decl->typeTokens);
+    
     // Allocate memory address for this variable
     int addr = next_memory_addr++;
-    addVariable(decl->varName, addr, is_array, is_heap_array);
+    addVariable(decl->varName, addr, is_array, is_heap_array, is_float_var);
     
     // If there's an initializer, evaluate it and store
     if (decl->init) {
-        genExpression(decl->init.get());
-        emit(Opcode::PUSH);
-        emitInt32(addr);
-        emit(Opcode::STORE);
+        if (is_float_var) {
+            // Float variable: generate expression, coerce if needed, FSTORE
+            genExpression(decl->init.get());
+            if (!isFloatExpr(decl->init.get())) {
+                emit(Opcode::INT_TO_FP);
+            }
+            emit(Opcode::FSTORE);
+            emitInt32(addr);
+        } else {
+            genExpression(decl->init.get());
+            emit(Opcode::PUSH);
+            emitInt32(addr);
+            emit(Opcode::STORE);
+        }
     }
 }
 
@@ -278,7 +296,8 @@ void CodeGenerator::genFor(const ForStmt* forstmt) {
     // Post-expression
     if (forstmt->post) {
         genExpression(forstmt->post.get());
-        emit(Opcode::POP); // Discard result
+        if (isFloatExpr(forstmt->post.get())) emit(Opcode::FPOP);
+        else emit(Opcode::POP); // Discard result
     }
     
     emitJump(Opcode::JMP, loop_start);
@@ -400,9 +419,16 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
             // Evaluate right side - leaves value on stack
             genExpression(binop->right.get());
             
-            // Store to variable or parameter
             if (sym) {
-                if (sym->type == Symbol::PARAMETER) {
+                if (sym->is_float) {
+                    // Float variable assignment
+                    if (!isFloatExpr(binop->right.get())) {
+                        emit(Opcode::INT_TO_FP);
+                    }
+                    emit(Opcode::FDUP);              // keep copy for expression result
+                    emit(Opcode::FSTORE);
+                    emitInt32(sym->offset);
+                } else if (sym->type == Symbol::PARAMETER) {
                     // Parameters use BP-relative addressing
                     emit(Opcode::DUP); // Keep value for expression result
                     emit(Opcode::STORE_BP);
@@ -451,11 +477,13 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
                     emit(Opcode::PRINT_STR);
                 } else {
                     genExpression(binop->right.get());
-                    emit(Opcode::PRINT);
+                    if (isFloatExpr(binop->right.get())) emit(Opcode::FPRINT);
+                    else emit(Opcode::PRINT);
                 }
             } else {
                 genExpression(binop->right.get());
-                emit(Opcode::PRINT);
+                if (isFloatExpr(binop->right.get())) emit(Opcode::FPRINT);
+                else emit(Opcode::PRINT);
             }
             // Push dummy for chaining
             emit(Opcode::PUSH);
@@ -477,7 +505,8 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
             }
         }
         genExpression(binop->right.get());
-        emit(Opcode::PRINT);
+        if (isFloatExpr(binop->right.get())) emit(Opcode::FPRINT);
+        else emit(Opcode::PRINT);
         emit(Opcode::PUSH);
         emitInt32(0);
         return;
@@ -544,6 +573,66 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
     }
     
     // Regular binary operations
+    
+    // --- Float arithmetic ---
+    bool leftIsFloat = isFloatExpr(binop->left.get());
+    bool rightIsFloat = isFloatExpr(binop->right.get());
+    bool eitherFloat = leftIsFloat || rightIsFloat;
+    
+    if (eitherFloat && (binop->op == "+" || binop->op == "-" ||
+                        binop->op == "*" || binop->op == "/")) {
+        genExpression(binop->left.get());
+        if (!leftIsFloat) emit(Opcode::INT_TO_FP);
+        genExpression(binop->right.get());
+        if (!rightIsFloat) emit(Opcode::INT_TO_FP);
+        if (binop->op == "+") emit(Opcode::FADD);
+        else if (binop->op == "-") emit(Opcode::FSUB);
+        else if (binop->op == "*") emit(Opcode::FMUL);
+        else emit(Opcode::FDIV);
+        return;
+    }
+    
+    // --- Float comparisons (result is int 0/1 on int stack) ---
+    if (eitherFloat && (binop->op == "<"  || binop->op == ">" ||
+                        binop->op == "<=" || binop->op == ">=" ||
+                        binop->op == "==" || binop->op == "!=")) {
+        genExpression(binop->left.get());
+        if (!leftIsFloat) emit(Opcode::INT_TO_FP);
+        genExpression(binop->right.get());
+        if (!rightIsFloat) emit(Opcode::INT_TO_FP);
+        
+        std::string true_label = makeLabel("fcmp_true");
+        std::string end_label  = makeLabel("fcmp_end");
+        
+        if (binop->op == "==" || binop->op == "!=") {
+            // Use FSUB + FP_TO_INT + JZ
+            emit(Opcode::FSUB);
+            emit(Opcode::FP_TO_INT);
+            emit(Opcode::DUP);
+            emitJump(Opcode::JZ, true_label);
+            emit(Opcode::POP);
+            emit(Opcode::PUSH); emitInt32(binop->op == "==" ? 0 : 1);
+            emitJump(Opcode::JMP, end_label);
+            defineLabel(true_label);
+            emit(Opcode::POP);
+            emit(Opcode::PUSH); emitInt32(binop->op == "==" ? 1 : 0);
+            defineLabel(end_label);
+        } else {
+            // Use FCMP (sets cmp_flag) + conditional jump
+            emit(Opcode::FCMP);
+            Opcode jmpOp = (binop->op == "<")  ? Opcode::JL  :
+                           (binop->op == ">")  ? Opcode::JG  :
+                           (binop->op == "<=") ? Opcode::JLE : Opcode::JGE;
+            emitJump(jmpOp, true_label);
+            emit(Opcode::PUSH); emitInt32(0);
+            emitJump(Opcode::JMP, end_label);
+            defineLabel(true_label);
+            emit(Opcode::PUSH); emitInt32(1);
+            defineLabel(end_label);
+        }
+        return;
+    }
+    
     genExpression(binop->left.get());
     genExpression(binop->right.get());
     
@@ -735,11 +824,15 @@ void CodeGenerator::genUnaryOp(const UnaryOp* unop) {
     genExpression(unop->operand.get());
     
     if (unop->op == "-") {
-        // Negate: push 0, swap, subtract
-        emit(Opcode::PUSH);
-        emitInt32(0);
-        emit(Opcode::SWAP);
-        emit(Opcode::SUB);
+        if (isFloatExpr(unop->operand.get())) {
+            emit(Opcode::FNEG);
+        } else {
+            // Negate: push 0, swap, subtract
+            emit(Opcode::PUSH);
+            emitInt32(0);
+            emit(Opcode::SWAP);
+            emit(Opcode::SUB);
+        }
     } else if (unop->op == "+") {
         // Unary plus does nothing
     }
@@ -763,8 +856,9 @@ void CodeGenerator::genCall(const CallExpr* call) {
         if (id->name == "print") {
             for (const auto& arg : call->args) {
                 genExpression(arg.get());
+                if (isFloatExpr(arg.get())) emit(Opcode::FPRINT);
+                else emit(Opcode::PRINT);
             }
-            emit(Opcode::PRINT);
             emit(Opcode::PUSH);
             emitInt32(0);
             return;
@@ -774,14 +868,17 @@ void CodeGenerator::genCall(const CallExpr* call) {
         if (id->name == "println") {
             for (const auto& arg : call->args) {
                 genExpression(arg.get());
-                // Check if this is a string literal
                 if (arg->kind == ASTNodeKind::LITERAL) {
                     auto lit = static_cast<const Literal*>(arg.get());
                     if (lit->litType == TokenType::STRING) {
                         emit(Opcode::PRINT_STR);
+                    } else if (isFloatExpr(arg.get())) {
+                        emit(Opcode::FPRINT);
                     } else {
                         emit(Opcode::PRINT);
                     }
+                } else if (isFloatExpr(arg.get())) {
+                    emit(Opcode::FPRINT);
                 } else {
                     emit(Opcode::PRINT);
                 }
@@ -831,7 +928,20 @@ void CodeGenerator::genLiteral(const Literal* lit) {
         return;
     }
     
-    // Parse numeric literal value
+    // Check for float literal - emit to FPU stack
+    if (lit->litType == TokenType::NUMBER && isFloatLiteralStr(lit->value)) {
+        float fval = 0.0f;
+        try {
+            fval = std::stof(lit->value);
+        } catch (...) {
+            std::cerr << "Warning: Could not parse float literal: " << lit->value << "\n";
+        }
+        emit(Opcode::FPUSH);
+        emitFloat32(fval);
+        return;
+    }
+    
+    // Parse integer literal value
     int value = 0;
     
     // Check for character literal (single character, no quotes in stored value)
@@ -869,7 +979,11 @@ void CodeGenerator::genIdentifier(const Identifier* id) {
     auto sym = findSymbol(id->name);
     if (sym) {
         if (sym->type == Symbol::VARIABLE) {
-            if (sym->is_heap_allocated) {
+            if (sym->is_float) {
+                // Float variable: load from float_memory to FPU stack
+                emit(Opcode::FLOAD);
+                emitInt32(sym->offset);
+            } else if (sym->is_heap_allocated) {
                 // Heap-allocated arrays: load the heap pointer
                 emit(Opcode::LOAD);
                 emitInt32(sym->offset);
@@ -927,6 +1041,68 @@ void CodeGenerator::emitInt32At(size_t pos, int32_t value) {
     bytecode[pos+1] = (value >> 8) & 0xFF;
     bytecode[pos+2] = (value >> 16) & 0xFF;
     bytecode[pos+3] = (value >> 24) & 0xFF;
+}
+
+void CodeGenerator::emitFloat32(float value) {
+    uint8_t bytes[4];
+    std::memcpy(bytes, &value, sizeof(float));
+    for (int i = 0; i < 4; i++) bytecode.push_back(bytes[i]);
+}
+
+// Returns true if the literal string represents a floating-point number
+bool CodeGenerator::isFloatLiteralStr(const std::string& s) {
+    if (s.empty()) return false;
+    // Hex integers are not float
+    if (s.size() >= 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) return false;
+    for (char c : s) {
+        if (c == '.' || c == 'e' || c == 'E') return true;
+    }
+    return false;
+}
+
+// Returns true if the type token list represents float or double
+bool CodeGenerator::isFloatType(const std::vector<std::string>& typeTokens) {
+    for (const auto& t : typeTokens) {
+        if (t == "float" || t == "double") return true;
+    }
+    return false;
+}
+
+// Returns true if the expression produces a float value (leaving it on the FPU stack)
+bool CodeGenerator::isFloatExpr(const ASTNode* node) {
+    if (!node) return false;
+    switch (node->kind) {
+        case ASTNodeKind::LITERAL: {
+            auto lit = static_cast<const Literal*>(node);
+            if (lit->litType == TokenType::STRING || lit->litType == TokenType::CHARACTER)
+                return false;
+            return isFloatLiteralStr(lit->value);
+        }
+        case ASTNodeKind::IDENTIFIER: {
+            auto id = static_cast<const Identifier*>(node);
+            auto sym = findSymbol(id->name);
+            return sym && sym->is_float;
+        }
+        case ASTNodeKind::BINARY_OP: {
+            auto bin = static_cast<const BinaryOp*>(node);
+            // Assignment result type follows the left-hand side
+            if (bin->op == "=") {
+                if (bin->left->kind == ASTNodeKind::IDENTIFIER) {
+                    auto id = static_cast<const Identifier*>(bin->left.get());
+                    auto sym = findSymbol(id->name);
+                    return sym && sym->is_float;
+                }
+                return false;
+            }
+            return isFloatExpr(bin->left.get()) || isFloatExpr(bin->right.get());
+        }
+        case ASTNodeKind::UNARY_OP: {
+            auto un = static_cast<const UnaryOp*>(node);
+            return isFloatExpr(un->operand.get());
+        }
+        default:
+            return false;
+    }
 }
 
 // Label management
@@ -1017,12 +1193,13 @@ std::string CodeGenerator::mangleFunctionName(const std::string& name,
 }
 
 // Symbol table
-void CodeGenerator::addVariable(const std::string& name, int offset, bool is_array, bool is_heap_allocated) {
+void CodeGenerator::addVariable(const std::string& name, int offset, bool is_array, bool is_heap_allocated, bool is_float) {
     Symbol sym;
     sym.type = Symbol::VARIABLE;
     sym.offset = offset;
     sym.is_array = is_array;
     sym.is_heap_allocated = is_heap_allocated;
+    sym.is_float = is_float;
     symbols[name] = sym;
     
     // DEBUG: // std::cerr << "DBG addVariable: '" << name << "' offset=" << offset 
@@ -1035,6 +1212,7 @@ void CodeGenerator::addParameter(const std::string& name, int offset) {
     sym.offset = offset;
     sym.is_array = false;  // Will be updated for pointer/array params
     sym.is_heap_allocated = false;
+    sym.is_float = false;
     symbols[name] = sym;
 }
 
@@ -1045,6 +1223,7 @@ void CodeGenerator::addFunction(const std::string& name, int address, int param_
     sym.param_count = param_count;
     sym.is_array = false;
     sym.is_heap_allocated = false;
+    sym.is_float = false;
     symbols[name] = sym;
 }
 

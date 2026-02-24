@@ -160,6 +160,9 @@ Token Lexer::categorizeKeyword(const std::string& value, int line, int column) {
 std::vector<Token> Lexer::tokenize() {
     tokens.clear();
     error_flag = false;
+    position = 0;
+    line = 1;
+    column = 1;
 
     while (position < source.length()) {
         skipWhitespace();

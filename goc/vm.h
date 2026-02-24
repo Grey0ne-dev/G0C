@@ -55,6 +55,23 @@ enum class VMOpcode : uint8_t {
     STORE_INDIRECT = 0x28,  // Pop addr, pop value, store mem[addr] = value
     ALLOC       = 0x29,     // Pop size, allocate heap memory, push address
     FREE        = 0x2A,     // Pop address, free heap memory
+
+    // FPU (x87-style circular register stack, 8 slots)
+    FPUSH       = 0x30,
+    FPOP        = 0x31,
+    FADD        = 0x32,
+    FSUB        = 0x33,
+    FMUL        = 0x34,
+    FDIV        = 0x35,
+    FLOAD       = 0x36,
+    FSTORE      = 0x37,
+    FPRINT      = 0x38,
+    FCMP        = 0x39,
+    FNEG        = 0x3A,
+    FDUP        = 0x3B,
+    INT_TO_FP   = 0x3C,
+    FP_TO_INT   = 0x3D,
+
     HALT        = 0xFF
 };
 
@@ -138,6 +155,11 @@ private:
     // Comparison flag (for CMP instruction)
     int32_t cmp_flag;
     
+    // FPU: x87-style circular register stack
+    float fpu_regs[8];
+    int fpu_top;              // index of current ST0
+    std::vector<float> float_memory;  // separate float memory space
+    
     // Statistics
     size_t instruction_count;
     size_t max_stack_size;
@@ -176,6 +198,12 @@ private:
     
     // Error handling
     void error(const std::string& msg);
+    
+    // FPU operations
+    void fpush(float value);
+    float fpop();
+    float fpeek() const;
+    float readFloat32();
     
     // Utility
     std::string opcodeToString(VMOpcode op) const;
