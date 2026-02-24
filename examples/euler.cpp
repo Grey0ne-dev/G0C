@@ -5,7 +5,7 @@ int main() {
     float e = 1.0f;     // sum starts with 1/0! = 1
     float term = 1.0f;  // current term = 1/0!
 
-    for (int i = 1; i <= iterations; ++i) {
+    for (int i = 1; i <= iterations; i = i + 1) {
         term = term / i; // recurrence: term_k = term_{k-1} / k -> 1/k!
         e = e + term;
     }
