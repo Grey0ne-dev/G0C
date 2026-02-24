@@ -55,6 +55,22 @@ This project represents my **first deep dive into compiler engineering**, and **
 * String table: String literals are stored in a string table and referenced by PUSH_STR/PRINT_STR opcodes.
 * FPU (floating-point): A small FPU stack (8 slots) is available with instructions: FPUSH (push float immediate), FPOP, FADD, FSUB, FMUL, FDIV, FLOAD, FSTORE, FPRINT (print and pop), FCMP (set comparison flag), FNEG, FDUP, INT_TO_FP, FP_TO_INT. Floating ops are emitted when expressions are detected as float by the code generator.
 
+### Euler example
+
+See examples/euler.cpp for a worked example that computes an approximation of e using the FPU. Compile and run:
+
+```bash
+./goc examples/euler.cpp -o examples/euler.bin --dump-bytecode
+./vm examples/euler.bin --disassemble
+./vm examples/euler.bin
+```
+
+Expected output (approx):
+
+```
+2.718280
+```
+
 ---
 
 ## 📌 Example End-to-End Compilation

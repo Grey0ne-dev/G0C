@@ -44,6 +44,23 @@ This produces two executables:
 ./vm output.bin --debug --disassemble
 ```
 
+## Example (Euler number)
+
+Compile and run the Euler example (examples/euler.cpp):
+
+```bash
+./goc examples/euler.cpp -o examples/euler.bin --dump-bytecode
+./vm examples/euler.bin --disassemble
+./vm examples/euler.bin
+```
+
+Expected output (approx):
+
+```
+2.718280
+```
+
+
 ## Name Mangling
 
 Function overloading supported via name mangling:
