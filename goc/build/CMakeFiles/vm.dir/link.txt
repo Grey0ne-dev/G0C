@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/vm.dir/link.d CMakeFiles/vm.dir/vm_main.cpp.o CMakeFiles/vm.dir/vm.cpp.o -o vm

@@ -1,0 +1,4 @@
+/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles/goc.dir
+/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles/vm.dir
+/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles/edit_cache.dir
+/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles/rebuild_cache.dir

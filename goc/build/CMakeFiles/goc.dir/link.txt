@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/goc.dir/link.d CMakeFiles/goc.dir/main.cpp.o CMakeFiles/goc.dir/lexer.cpp.o CMakeFiles/goc.dir/parser.cpp.o CMakeFiles/goc.dir/codegen.cpp.o -o goc
