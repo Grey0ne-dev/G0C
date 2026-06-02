@@ -193,4 +193,11 @@ CMakeFiles/goc.dir/parser.cpp.o: \
  /usr/include/c++/16.1.1/bits/atomic_lockfree_defines.h \
  /usr/include/c++/16.1.1/backward/auto_ptr.h \
  /usr/include/c++/16.1.1/pstl/glue_memory_defs.h \
- /usr/include/c++/16.1.1/pstl/execution_defs.h
+ /usr/include/c++/16.1.1/pstl/execution_defs.h \
+ /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
+ /usr/include/c++/16.1.1/algorithm \
+ /usr/include/c++/16.1.1/bits/stl_algo.h \
+ /usr/include/c++/16.1.1/bits/algorithmfwd.h \
+ /usr/include/c++/16.1.1/bits/stl_heap.h \
+ /usr/include/c++/16.1.1/bits/uniform_int_dist.h \
+ /usr/include/c++/16.1.1/pstl/glue_algorithm_defs.h

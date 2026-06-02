@@ -3,6 +3,7 @@ goc: \
   /usr/lib/gcc/x86_64-pc-linux-gnu/16.1.1/../../../../lib/crti.o \
   /usr/lib/gcc/x86_64-pc-linux-gnu/16.1.1/crtbeginS.o \
   CMakeFiles/goc.dir/main.cpp.o \
+  CMakeFiles/goc.dir/logger.cpp.o \
   CMakeFiles/goc.dir/lexer.cpp.o \
   CMakeFiles/goc.dir/parser.cpp.o \
   CMakeFiles/goc.dir/codegen.cpp.o \
@@ -45,6 +46,8 @@ goc: \
 /usr/lib/gcc/x86_64-pc-linux-gnu/16.1.1/crtbeginS.o:
 
 CMakeFiles/goc.dir/main.cpp.o:
+
+CMakeFiles/goc.dir/logger.cpp.o:
 
 CMakeFiles/goc.dir/lexer.cpp.o:
 

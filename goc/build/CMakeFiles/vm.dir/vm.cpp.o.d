@@ -198,6 +198,8 @@ CMakeFiles/vm.dir/vm.cpp.o: \
  /usr/include/bits/termios-cbaud.h /usr/include/bits/termios-c_lflag.h \
  /usr/include/bits/termios-tcflow.h /usr/include/bits/termios-misc.h \
  /usr/include/bits/termios-baud.h /usr/include/sys/ttydefaults.h \
+ /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
+ /usr/include/c++/16.1.1/sstream /usr/include/c++/16.1.1/bits/sstream.tcc \
  /usr/include/c++/16.1.1/fstream /usr/include/c++/16.1.1/bits/codecvt.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/basic_file.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++io.h \
@@ -211,7 +213,6 @@ CMakeFiles/vm.dir/vm.cpp.o: \
  /usr/include/c++/16.1.1/bits/locale_facets_nonio.tcc \
  /usr/include/c++/16.1.1/bits/locale_conv.h \
  /usr/include/c++/16.1.1/bits/quoted_string.h \
- /usr/include/c++/16.1.1/sstream /usr/include/c++/16.1.1/bits/sstream.tcc \
  /usr/include/c++/16.1.1/cstring /usr/include/string.h \
  /usr/include/strings.h /usr/include/c++/16.1.1/algorithm \
  /usr/include/c++/16.1.1/bits/stl_algo.h \

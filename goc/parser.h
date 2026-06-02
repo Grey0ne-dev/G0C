@@ -139,9 +139,10 @@ struct VarDecl : Statement {
     bool isPointer;  // NEW: track if it's a pointer
     bool isReference; // NEW: track if it's a reference
     bool isArray;    // NEW: track if it's an array declaration
+    int arraySize;   // Number of cells reserved for stack arrays
     VarDecl(std::vector<std::string> t, std::string n, ASTNodePtr i, int l, int c)
         : Statement(ASTNodeKind::VAR_DECL, l, c), typeTokens(std::move(t)), varName(std::move(n)),
-          init(std::move(i)), isPointer(false), isReference(false), isArray(false) {}
+          init(std::move(i)), isPointer(false), isReference(false), isArray(false), arraySize(1) {}
     void dump(int indent = 0) const override;
 };
 

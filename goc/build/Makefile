@@ -190,6 +190,33 @@ lexer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/goc.dir/build.make CMakeFiles/goc.dir/lexer.cpp.s
 .PHONY : lexer.cpp.s
 
+logger.o: logger.cpp.o
+.PHONY : logger.o
+
+# target to build an object file
+logger.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/goc.dir/build.make CMakeFiles/goc.dir/logger.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vm.dir/build.make CMakeFiles/vm.dir/logger.cpp.o
+.PHONY : logger.cpp.o
+
+logger.i: logger.cpp.i
+.PHONY : logger.i
+
+# target to preprocess a source file
+logger.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/goc.dir/build.make CMakeFiles/goc.dir/logger.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vm.dir/build.make CMakeFiles/vm.dir/logger.cpp.i
+.PHONY : logger.cpp.i
+
+logger.s: logger.cpp.s
+.PHONY : logger.s
+
+# target to generate assembly for a file
+logger.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/goc.dir/build.make CMakeFiles/goc.dir/logger.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vm.dir/build.make CMakeFiles/vm.dir/logger.cpp.s
+.PHONY : logger.cpp.s
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -302,6 +329,9 @@ help:
 	@echo "... lexer.o"
 	@echo "... lexer.i"
 	@echo "... lexer.s"
+	@echo "... logger.o"
+	@echo "... logger.i"
+	@echo "... logger.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

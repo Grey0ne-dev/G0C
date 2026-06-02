@@ -1,4 +1,6 @@
 #include "parser.h"
+#include "logger.h"
+#include <algorithm>
 #include <sstream>
 
 // ---------- helpers ----------
@@ -7,119 +9,119 @@ std::string indentStr(int n) {
 }
 
 void printQuoted(const std::string &s) {
-    std::cout << '"' << s << '"';
+    Logger::out() << '"' << s << '"';
 }
 
 //------------- dumps --------------
 void Literal::dump(int indent) const {
-    std::cout << indentStr(indent) << "Literal(";
+    Logger::out() << indentStr(indent) << "Literal(";
     printQuoted(value);
-    std::cout << ") [" << line << ":" << column << "]\n";
+    Logger::out() << ") [" << line << ":" << column << "]\n";
 }
 
 void Identifier::dump(int indent) const {
-    std::cout << indentStr(indent) << "Identifier(" << name << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "Identifier(" << name << ") [" << line << ":" << column << "]\n";
 }
 
 void UnaryOp::dump(int indent) const {
-    std::cout << indentStr(indent) << "UnaryOp(" << op << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "UnaryOp(" << op << ") [" << line << ":" << column << "]\n";
     if (operand) operand->dump(indent+1);
 }
 
 void BinaryOp::dump(int indent) const {
-    std::cout << indentStr(indent) << "BinaryOp(" << op << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "BinaryOp(" << op << ") [" << line << ":" << column << "]\n";
     if (left) left->dump(indent+1);
     if (right) right->dump(indent+1);
 }
 
 void CallExpr::dump(int indent) const {
-    std::cout << indentStr(indent) << "CallExpr [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "CallExpr [" << line << ":" << column << "]\n";
     if (callee) callee->dump(indent+1);
     for (const auto &a : args) a->dump(indent+1);
 }
 
 void MemberAccess::dump(int indent) const {
-    std::cout << indentStr(indent) << (arrow ? "MemberAccess->" : "MemberAccess.") << member << " [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << (arrow ? "MemberAccess->" : "MemberAccess.") << member << " [" << line << ":" << column << "]\n";
     if (object) object->dump(indent+1);
 }
 
 void ArraySubscript::dump(int indent) const {
-    std::cout << indentStr(indent) << "ArraySubscript [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "ArraySubscript [" << line << ":" << column << "]\n";
     if (array) {
-        std::cout << indentStr(indent+1) << "Array:\n";
+        Logger::out() << indentStr(indent+1) << "Array:\n";
         array->dump(indent+2);
     }
     if (index) {
-        std::cout << indentStr(indent+1) << "Index:\n";
+        Logger::out() << indentStr(indent+1) << "Index:\n";
         index->dump(indent+2);
     }
 }
 
 void ExprStmt::dump(int indent) const {
-    std::cout << indentStr(indent) << "ExprStmt [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "ExprStmt [" << line << ":" << column << "]\n";
     if (expr) expr->dump(indent+1);
 }
 
 void VarDecl::dump(int indent) const {
-    std::cout << indentStr(indent) << "VarDecl(";
+    Logger::out() << indentStr(indent) << "VarDecl(";
     for (size_t i = 0; i < typeTokens.size(); i++) {
-        std::cout << typeTokens[i];
-        if (i < typeTokens.size() - 1) std::cout << " ";
+        Logger::out() << typeTokens[i];
+        if (i < typeTokens.size() - 1) Logger::out() << " ";
     }
-    std::cout << " " << varName << ") [" << line << ":" << column << "]\n";
+    Logger::out() << " " << varName << ") [" << line << ":" << column << "]\n";
     if (init) {
-        std::cout << indentStr(indent+1) << "Initializer:\n";
+        Logger::out() << indentStr(indent+1) << "Initializer:\n";
         init->dump(indent+2);
     }
 }
 
 void BlockStmt::dump(int indent) const {
-    std::cout << indentStr(indent) << "Block [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "Block [" << line << ":" << column << "]\n";
     for (const auto &s : statements) {
         if (s) s->dump(indent+1);
     }
 }
 
 void IfStmt::dump(int indent) const {
-    std::cout << indentStr(indent) << "If [" << line << ":" << column << "]\n";
-    std::cout << indentStr(indent+1) << "Condition:\n";
+    Logger::out() << indentStr(indent) << "If [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent+1) << "Condition:\n";
     if (cond) cond->dump(indent+2);
-    std::cout << indentStr(indent+1) << "Then:\n";
+    Logger::out() << indentStr(indent+1) << "Then:\n";
     if (thenBranch) thenBranch->dump(indent+2);
     if (elseBranch) {
-        std::cout << indentStr(indent+1) << "Else:\n";
+        Logger::out() << indentStr(indent+1) << "Else:\n";
         elseBranch->dump(indent+2);
     }
 }
 
 void WhileStmt::dump(int indent) const {
-    std::cout << indentStr(indent) << "While [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "While [" << line << ":" << column << "]\n";
     if (cond) cond->dump(indent+1);
     if (body) body->dump(indent+1);
 }
 
 void ForStmt::dump(int indent) const {
-    std::cout << indentStr(indent) << "For [" << line << ":" << column << "]\n";
-    if (init) { std::cout << indentStr(indent+1) << "Init:\n"; init->dump(indent+2); }
-    if (cond) { std::cout << indentStr(indent+1) << "Cond:\n"; cond->dump(indent+2); }
-    if (post) { std::cout << indentStr(indent+1) << "Post:\n"; post->dump(indent+2); }
-    if (body) { std::cout << indentStr(indent+1) << "Body:\n"; body->dump(indent+2); }
+    Logger::out() << indentStr(indent) << "For [" << line << ":" << column << "]\n";
+    if (init) { Logger::out() << indentStr(indent+1) << "Init:\n"; init->dump(indent+2); }
+    if (cond) { Logger::out() << indentStr(indent+1) << "Cond:\n"; cond->dump(indent+2); }
+    if (post) { Logger::out() << indentStr(indent+1) << "Post:\n"; post->dump(indent+2); }
+    if (body) { Logger::out() << indentStr(indent+1) << "Body:\n"; body->dump(indent+2); }
 }
 
 void ReturnStmt::dump(int indent) const {
-    std::cout << indentStr(indent) << "Return [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "Return [" << line << ":" << column << "]\n";
     if (expr) expr->dump(indent+1);
 }
 
 // C++ specific dumps
 void ClassDecl::dump(int indent) const {
-    std::cout << indentStr(indent) << "ClassDecl(" << className << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "ClassDecl(" << className << ") [" << line << ":" << column << "]\n";
     if (!baseClasses.empty()) {
-        std::cout << indentStr(indent+1) << "BaseClasses: ";
+        Logger::out() << indentStr(indent+1) << "BaseClasses: ";
         for (const auto& base : baseClasses) {
-            std::cout << base << " ";
+            Logger::out() << base << " ";
         }
-        std::cout << "\n";
+        Logger::out() << "\n";
     }
     for (const auto &m : members) {
         if (m) m->dump(indent+1);
@@ -127,65 +129,65 @@ void ClassDecl::dump(int indent) const {
 }
 
 void StructDecl::dump(int indent) const {
-    std::cout << indentStr(indent) << "StructDecl(" << structName << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "StructDecl(" << structName << ") [" << line << ":" << column << "]\n";
     for (const auto &m : members) {
         if (m) m->dump(indent+1);
     }
 }
 
 void NamespaceDecl::dump(int indent) const {
-    std::cout << indentStr(indent) << "NamespaceDecl(" << name << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "NamespaceDecl(" << name << ") [" << line << ":" << column << "]\n";
     if (body) body->dump(indent+1);
 }
 
 void TemplateDecl::dump(int indent) const {
-    std::cout << indentStr(indent) << "TemplateDecl [" << line << ":" << column << "]\n";
-    std::cout << indentStr(indent+1) << "Params: ";
+    Logger::out() << indentStr(indent) << "TemplateDecl [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent+1) << "Params: ";
     for (const auto &p : params) {
-        std::cout << p << " ";
+        Logger::out() << p << " ";
     }
-    std::cout << "\n";
+    Logger::out() << "\n";
     if (declaration) declaration->dump(indent+1);
 }
 
 void AccessSpec::dump(int indent) const {
-    std::cout << indentStr(indent) << "AccessSpec(" << access << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "AccessSpec(" << access << ") [" << line << ":" << column << "]\n";
 }
 
 void IncludeDirective::dump(int indent) const {
-    std::cout << indentStr(indent) << "IncludeDirective("
+    Logger::out() << indentStr(indent) << "IncludeDirective("
               << (isSystem ? "<" : "\"") << file << (isSystem ? ">" : "\"")
               << ") [" << line << ":" << column << "]\n";
 }
 
 void UsingDirective::dump(int indent) const {
-    std::cout << indentStr(indent) << "UsingDirective(" << namespaceName << ") [" << line << ":" << column << "]\n";
+    Logger::out() << indentStr(indent) << "UsingDirective(" << namespaceName << ") [" << line << ":" << column << "]\n";
 }
 
 void FunctionDecl::dump(int indent) const {
-    std::cout << indentStr(indent) << "FunctionDecl(";
+    Logger::out() << indentStr(indent) << "FunctionDecl(";
     for (size_t i = 0; i < returnTypeTokens.size(); i++) {
-        std::cout << returnTypeTokens[i];
-        if (i < returnTypeTokens.size() - 1) std::cout << " ";
+        Logger::out() << returnTypeTokens[i];
+        if (i < returnTypeTokens.size() - 1) Logger::out() << " ";
     }
-    std::cout << " " << funcName;
-    if (isConst) std::cout << " const";
-    std::cout << ") [" << line << ":" << column << "]\n";
+    Logger::out() << " " << funcName;
+    if (isConst) Logger::out() << " const";
+    Logger::out() << ") [" << line << ":" << column << "]\n";
 
-    std::cout << indentStr(indent+1) << "Params:\n";
+    Logger::out() << indentStr(indent+1) << "Params:\n";
     for (const auto &p : params) {
-        std::cout << indentStr(indent+2);
+        Logger::out() << indentStr(indent+2);
         for (size_t i = 0; i < p.first.size(); i++) {
-            std::cout << p.first[i];
-            if (i < p.first.size() - 1) std::cout << " ";
+            Logger::out() << p.first[i];
+            if (i < p.first.size() - 1) Logger::out() << " ";
         }
-        std::cout << " " << p.second << "\n";
+        Logger::out() << " " << p.second << "\n";
     }
     if (body) body->dump(indent+1);
 }
 
 void Program::dump() const {
-    std::cout << "Program AST:\n";
+    Logger::out() << "Program AST:\n";
     for (const auto &n : top) {
         if (n) n->dump(1);
     }
@@ -240,17 +242,16 @@ void Parser::consume(TokenType t, const std::string &msg) {
 void Parser::error(const Token& tok, const std::string& message) const {
     std::ostringstream ss;
     ss << "Parse error at line " << tok.line << " col " << tok.column << ": " << message;
-    // Print detailed token context for debugging
-    std::cerr << ss.str() << std::endl;
+    Logger::error() << ss.str() << std::endl;
     size_t start = (idx > 5) ? idx - 5 : 0;
     size_t end = idx + 5;
     if (end >= tokens.size()) {
         if (!tokens.empty()) end = tokens.size() - 1;
         else end = 0;
     }
-    // DEBUG: // std::cerr << "DEBUG token context around idx=" << idx << ":\n";
+    Logger::debug() << "DEBUG token context around idx=" << idx << ":\n";
     for (size_t i = start; i <= end && i < tokens.size(); ++i) {
-        std::cerr << i << ": type=" << static_cast<int>(tokens[i].type)
+        Logger::debug() << i << ": type=" << static_cast<int>(tokens[i].type)
                   << " '" << tokens[i].value << "' (line " << tokens[i].line
                   << "," << tokens[i].column << ")\n";
     }
@@ -269,35 +270,35 @@ bool Parser::isStorageClass() const {
     return check(TokenType::STORAGE_CLASS);
 }
 
-std::vector<std::string> Parser::parseType() {  // TODO: remove debug bullshit
+std::vector<std::string> Parser::parseType() {
     std::vector<std::string> typeTokens;
 
-    // DEBUG: // std::cerr << "DEBUG parseType: Starting with token '" << peek().value
-// DEBUG_CONT:               << "' type: " << static_cast<int>(peek().type) << std::endl;
+    Logger::debug() << "DEBUG parseType: Starting with token '" << peek().value
+                    << "' type: " << static_cast<int>(peek().type) << std::endl;
 
     // Storage class (static, extern, etc.)
     while (isStorageClass()) {
         typeTokens.push_back(peek().value);
-        // DEBUG: // std::cerr << "DEBUG parseType: Consumed storage class '" << peek().value << "'" << std::endl;
+        Logger::debug() << "DEBUG parseType: Consumed storage class '" << peek().value << "'" << std::endl;
         advance();
     }
 
     // Type qualifiers (const, volatile)
     while (isTypeQualifier()) {
         typeTokens.push_back(peek().value);
-        // DEBUG: // std::cerr << "DEBUG parseType: Consumed type qualifier '" << peek().value << "'" << std::endl;
+        Logger::debug() << "DEBUG parseType: Consumed type qualifier '" << peek().value << "'" << std::endl;
         advance();
     }
 
     // Base type - type specifier OR user-defined type (identifier)
     if (isTypeSpecifier()) {
         typeTokens.push_back(peek().value);
-        // DEBUG: // std::cerr << "DEBUG parseType: Consumed type specifier '" << peek().value << "'" << std::endl;
+        Logger::debug() << "DEBUG parseType: Consumed type specifier '" << peek().value << "'" << std::endl;
         advance();
     } else if (check(TokenType::IDENTIFIER) || (check(TokenType::KEYWORD) && (peek().value == "typename" || peek().value == "class"))) {
         // Build qualified name and consume nested template arguments as part of the type
         std::string fullname = peek().value;
-        // DEBUG: // std::cerr << "DEBUG parseType: Consumed user-defined type '" << peek().value << "'" << std::endl;
+        Logger::debug() << "DEBUG parseType: Consumed user-defined type '" << peek().value << "'" << std::endl;
         advance();
 
         // If we consumed a leading 'typename'/'class', attach the next identifier as the actual type name
@@ -350,19 +351,19 @@ std::vector<std::string> Parser::parseType() {  // TODO: remove debug bullshit
     // Pointer/reference markers
     while (check(TokenType::OPERATOR) && (peek().value == "*" || peek().value == "&")) {
         typeTokens.push_back(peek().value);
-        // DEBUG: // std::cerr << "DEBUG parseType: Consumed pointer/reference '" << peek().value << "'" << std::endl;
+        Logger::debug() << "DEBUG parseType: Consumed pointer/reference '" << peek().value << "'" << std::endl;
         advance();
 
         // const after pointer: int* const
         while (isTypeQualifier()) {
             typeTokens.push_back(peek().value);
-            // DEBUG: // std::cerr << "DEBUG parseType: Consumed qualifier after pointer '" << peek().value << "'" << std::endl;
+            Logger::debug() << "DEBUG parseType: Consumed qualifier after pointer '" << peek().value << "'" << std::endl;
             advance();
         }
     }
 
-    // DEBUG: // std::cerr << "DEBUG parseType: Ending with token '" << peek().value
-// DEBUG_CONT:               << "' type: " << static_cast<int>(peek().type) << std::endl;
+    Logger::debug() << "DEBUG parseType: Ending with token '" << peek().value
+                    << "' type: " << static_cast<int>(peek().type) << std::endl;
     return typeTokens;
 }
 
@@ -629,7 +630,8 @@ ASTNodePtr Parser::parseNamespace() {
         name = ""; // anonymous namespace
     }
 
-    // DEBUG: // std::cerr << "DEBUG parseNamespace: name='" << name << "' peek='" << peek().value << "' type:" << static_cast<int>(peek().type) << std::endl;
+    Logger::debug() << "DEBUG parseNamespace: name='" << name << "' peek='" << peek().value
+                    << "' type:" << static_cast<int>(peek().type) << std::endl;
     consume(TokenType::LEFT_BRACE, "Expected '{' after namespace");
 
     auto body = std::make_unique<BlockStmt>(nsTok.line, nsTok.column);
@@ -796,7 +798,7 @@ ASTNodePtr Parser::parseUsingDirective() {
         return std::make_unique<UsingDirective>(nsName.value, usingTok.line, usingTok.column);
     }
 
-    // Handle using declarations (using std::cout;)
+    // Handle using declarations (using Logger::out();)
     while (!check(TokenType::SEMICOLON) && !isAtEnd()) advance();
     consume(TokenType::SEMICOLON, "Expected ';' after using declaration");
     return nullptr;
@@ -834,7 +836,8 @@ std::vector<std::pair<std::vector<std::string>, std::string>> Parser::parseFunct
 
     while (!check(TokenType::RIGHT_PAREN) && !isAtEnd()) {
         // Parse parameter type
-        // DEBUG: // std::cerr << "DEBUG parseFunctionParams: about to parse type at token '" << peek().value << "' (" << static_cast<int>(peek().type) << ")" << std::endl;
+        Logger::debug() << "DEBUG parseFunctionParams: about to parse type at token '"
+                        << peek().value << "' (" << static_cast<int>(peek().type) << ")" << std::endl;
         std::vector<std::string> paramType = parseType();
 
         if (paramType.empty()) {
@@ -892,24 +895,22 @@ ASTNodePtr Parser::parseVarDeclaration() {
     int startLine = peek().line;
     int startCol = peek().column;
 
-    // DEBUG: Print current state
-    // DEBUG: // std::cerr << "DEBUG parseVarDeclaration: Starting at token '" << peek().value
-// DEBUG_CONT:               << "' type: " << static_cast<int>(peek().type) << std::endl;
+    Logger::debug() << "DEBUG parseVarDeclaration: Starting at token '" << peek().value
+                    << "' type: " << static_cast<int>(peek().type) << std::endl;
 
     // Parse type (can be complex: const int*, unsigned long long, etc.)
     std::vector<std::string> type = parseType();
 
-    // DEBUG: Print after parseType
-    // DEBUG: // std::cerr << "DEBUG parseVarDeclaration: After parseType, current token '" << peek().value
-// DEBUG_CONT:               << "' type: " << static_cast<int>(peek().type) << std::endl;
-    // DEBUG: // std::cerr << "DEBUG: Type tokens: ";
-    // DEBUG: // for (const auto& t : type) std::cerr << t << " ";
-    // DEBUG: // std::cerr << std::endl;
+    Logger::debug() << "DEBUG parseVarDeclaration: After parseType, current token '" << peek().value
+                    << "' type: " << static_cast<int>(peek().type) << std::endl;
+    Logger::debug() << "DEBUG: Type tokens: ";
+    for (const auto& t : type) Logger::debug() << t << " ";
+    Logger::debug() << std::endl;
 
     // Must have at least one declarator
     if (!check(TokenType::IDENTIFIER)) {
-        // DEBUG: // std::cerr << "DEBUG: ERROR - Expected identifier, got '" << peek().value
-// DEBUG_CONT:                   << "' type: " << static_cast<int>(peek().type) << std::endl;
+        Logger::debug() << "DEBUG: ERROR - Expected identifier, got '" << peek().value
+                        << "' type: " << static_cast<int>(peek().type) << std::endl;
         error(peek(), "Expected identifier after type");
     }
 
@@ -918,21 +919,30 @@ ASTNodePtr Parser::parseVarDeclaration() {
 
     while (true) {
         Token nameTok = peek(); advance();
-        // DEBUG: // std::cerr << "DEBUG: Variable name: " << nameTok.value << std::endl;
+        Logger::debug() << "DEBUG: Variable name: " << nameTok.value << std::endl;
 
         ASTNodePtr init = nullptr;
         bool isArrayDecl = false;
+        int arraySize = 1;
         // Array declarator e.g. arr[5]
         if (check(TokenType::LEFT_BRACKET)) {
             isArrayDecl = true;
             Token br = peek(); advance();
             // For simplicity, capture the size expression
             ASTNodePtr sizeExpr = parseExpression();
+            if (sizeExpr && sizeExpr->kind == ASTNodeKind::LITERAL) {
+                auto lit = static_cast<const Literal*>(sizeExpr.get());
+                try {
+                    arraySize = std::max(1, std::stoi(lit->value));
+                } catch (...) {
+                    arraySize = 1;
+                }
+            }
             consume(TokenType::RIGHT_BRACKET, "Expected ']' in array declarator");
             (void)sizeExpr;
             // If an initializer follows (e.g. = { ... }) handle it
             if (check(TokenType::OPERATOR) && peek().value == "=") {
-                // DEBUG: // std::cerr << "DEBUG: Found = initializer after array declarator" << std::endl;
+                Logger::debug() << "DEBUG: Found = initializer after array declarator" << std::endl;
                 advance();
                 if (check(TokenType::LEFT_BRACE)) {
                     Token ob = peek(); advance();
@@ -950,7 +960,7 @@ ASTNodePtr Parser::parseVarDeclaration() {
         }
         // Brace initializer list e.g. = {1,2,3}
         else if (check(TokenType::OPERATOR) && peek().value == "=") {
-            // DEBUG: // std::cerr << "DEBUG: Found = initializer" << std::endl;
+            Logger::debug() << "DEBUG: Found = initializer" << std::endl;
             advance();
             if (check(TokenType::LEFT_BRACE)) {
                 Token ob = peek(); advance();
@@ -966,7 +976,7 @@ ASTNodePtr Parser::parseVarDeclaration() {
                 init = parseExpression();
             }
         } else if (check(TokenType::LEFT_PAREN)) {
-            // DEBUG: // std::cerr << "DEBUG: Found constructor initializer" << std::endl;
+            Logger::debug() << "DEBUG: Found constructor initializer" << std::endl;
             advance();
             std::vector<ASTNodePtr> args;
             while (!check(TokenType::RIGHT_PAREN) && !isAtEnd()) {
@@ -984,6 +994,7 @@ ASTNodePtr Parser::parseVarDeclaration() {
             if (token == "&") varDecl->isReference = true;
         }
         varDecl->isArray = isArrayDecl;
+        varDecl->arraySize = arraySize;
         decls.push_back(std::move(varDecl));
 
         if (!match({TokenType::COMMA})) break;
@@ -993,7 +1004,7 @@ ASTNodePtr Parser::parseVarDeclaration() {
     if (check(TokenType::SEMICOLON)) {
         consume(TokenType::SEMICOLON, "Expected ';' after variable declaration");
     }
-    // DEBUG: // std::cerr << "DEBUG: Successfully parsed variable declaration(s), count=" << decls.size() << std::endl;
+    Logger::debug() << "DEBUG: Successfully parsed variable declaration(s), count=" << decls.size() << std::endl;
 
     if (decls.size() == 1) {
         return std::move(decls[0]);
@@ -1059,10 +1070,12 @@ ASTNodePtr Parser::parseFor() {
         // Check if it's a variable declaration
         if (isTypeSpecifier() || isTypeQualifier() || isStorageClass()) {
             init = parseVarDeclaration();
-            // DEBUG: // std::cerr << "DEBUG parseFor: init parsed as varDecl, next token='" << peek().value << "' type:" << static_cast<int>(peek().type) << std::endl;
+            Logger::debug() << "DEBUG parseFor: init parsed as varDecl, next token='" << peek().value
+                            << "' type:" << static_cast<int>(peek().type) << std::endl;
         } else {
             init = parseExpression();
-            // DEBUG: // std::cerr << "DEBUG parseFor: init parsed as expr, next token='" << peek().value << "' type:" << static_cast<int>(peek().type) << std::endl;
+            Logger::debug() << "DEBUG parseFor: init parsed as expr, next token='" << peek().value
+                            << "' type:" << static_cast<int>(peek().type) << std::endl;
             consume(TokenType::SEMICOLON, "Expected ';' after for init");
         }
     } else {
@@ -1082,16 +1095,20 @@ ASTNodePtr Parser::parseFor() {
 
     ASTNodePtr cond = nullptr;
     if (!check(TokenType::SEMICOLON)) cond = parseExpression();
-    // DEBUG: // std::cerr << "DEBUG parseFor: after cond, next token='" << peek().value << "' type:" << static_cast<int>(peek().type) << std::endl;
+    Logger::debug() << "DEBUG parseFor: after cond, next token='" << peek().value
+                    << "' type:" << static_cast<int>(peek().type) << std::endl;
     consume(TokenType::SEMICOLON, "Expected ';' after for condition");
 
     ASTNodePtr post = nullptr;
     if (!check(TokenType::RIGHT_PAREN)) {
-        // DEBUG: // std::cerr << "DEBUG parseFor: about to parse post, peek='" << peek().value << "' type:" << static_cast<int>(peek().type) << std::endl;
+        Logger::debug() << "DEBUG parseFor: about to parse post, peek='" << peek().value
+                        << "' type:" << static_cast<int>(peek().type) << std::endl;
         post = parseExpression();
-        // DEBUG: // std::cerr << "DEBUG parseFor: after post, peek='" << peek().value << "' type:" << static_cast<int>(peek().type) << std::endl;
+        Logger::debug() << "DEBUG parseFor: after post, peek='" << peek().value
+                        << "' type:" << static_cast<int>(peek().type) << std::endl;
     }
-    // DEBUG: // std::cerr << "DEBUG parseFor: about to consume RIGHT_PAREN, peek='" << peek().value << "' type:" << static_cast<int>(peek().type) << std::endl;
+    Logger::debug() << "DEBUG parseFor: about to consume RIGHT_PAREN, peek='" << peek().value
+                    << "' type:" << static_cast<int>(peek().type) << std::endl;
     consume(TokenType::RIGHT_PAREN, "Expected ')' after for clauses");
 
     ASTNodePtr body = parseStatement();

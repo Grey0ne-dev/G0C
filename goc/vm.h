@@ -71,6 +71,8 @@ enum class VMOpcode : uint8_t {
     FDUP        = 0x3B,
     INT_TO_FP   = 0x3C,
     FP_TO_INT   = 0x3D,
+    FP_TO_BITS  = 0x3E,
+    BITS_TO_FP  = 0x3F,
 
     HALT        = 0xFF
 };

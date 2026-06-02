@@ -1,5 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/vm.dir/link.d"
+  "CMakeFiles/vm.dir/logger.cpp.o"
+  "CMakeFiles/vm.dir/logger.cpp.o.d"
   "CMakeFiles/vm.dir/vm.cpp.o"
   "CMakeFiles/vm.dir/vm.cpp.o.d"
   "CMakeFiles/vm.dir/vm_main.cpp.o"

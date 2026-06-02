@@ -1,10 +1,8 @@
-CMakeFiles/goc.dir/codegen.cpp.o: \
- /home/grey0/Projects/PetProjects/G0C/goc/codegen.cpp \
+CMakeFiles/goc.dir/logger.cpp.o: \
+ /home/grey0/Projects/PetProjects/G0C/goc/logger.cpp \
  /usr/include/stdc-predef.h \
- /home/grey0/Projects/PetProjects/G0C/goc/codegen.h \
- /home/grey0/Projects/PetProjects/G0C/goc/parser.h \
- /home/grey0/Projects/PetProjects/G0C/goc/lexer.h \
- /usr/include/c++/16.1.1/iostream \
+ /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
+ /usr/include/c++/16.1.1/ostream \
  /usr/include/c++/16.1.1/bits/requires_hosted.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++config.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/os_defines.h \
@@ -14,9 +12,8 @@ CMakeFiles/goc.dir/codegen.cpp.o: \
  /usr/include/gnu/stubs.h /usr/include/gnu/stubs-64.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/cpu_defines.h \
  /usr/include/c++/16.1.1/pstl/pstl_config.h \
- /usr/include/c++/16.1.1/ostream /usr/include/c++/16.1.1/bits/ostream.h \
- /usr/include/c++/16.1.1/ios /usr/include/c++/16.1.1/iosfwd \
- /usr/include/c++/16.1.1/bits/stringfwd.h \
+ /usr/include/c++/16.1.1/bits/ostream.h /usr/include/c++/16.1.1/ios \
+ /usr/include/c++/16.1.1/iosfwd /usr/include/c++/16.1.1/bits/stringfwd.h \
  /usr/include/c++/16.1.1/bits/memoryfwd.h \
  /usr/include/c++/16.1.1/bits/version.h \
  /usr/include/c++/16.1.1/bits/postypes.h /usr/include/c++/16.1.1/cwchar \
@@ -153,59 +150,7 @@ CMakeFiles/goc.dir/codegen.cpp.o: \
  /usr/include/c++/16.1.1/bits/locale_facets.tcc \
  /usr/include/c++/16.1.1/bits/basic_ios.tcc \
  /usr/include/c++/16.1.1/bits/ostream_print.h \
- /usr/include/c++/16.1.1/bits/ostream.tcc /usr/include/c++/16.1.1/istream \
- /usr/include/c++/16.1.1/bits/istream.tcc /usr/include/c++/16.1.1/vector \
- /usr/include/c++/16.1.1/bits/stl_uninitialized.h \
- /usr/include/c++/16.1.1/bits/stl_vector.h \
- /usr/include/c++/16.1.1/bits/stl_bvector.h \
- /usr/include/c++/16.1.1/bits/vector.tcc \
- /usr/include/c++/16.1.1/unordered_map \
- /usr/include/c++/16.1.1/bits/unordered_map.h \
- /usr/include/c++/16.1.1/bits/hashtable.h \
- /usr/include/c++/16.1.1/bits/hashtable_policy.h \
- /usr/include/c++/16.1.1/ext/aligned_buffer.h \
- /usr/include/c++/16.1.1/bits/enable_special_members.h \
- /usr/include/c++/16.1.1/bits/node_handle.h \
- /usr/include/c++/16.1.1/sstream /usr/include/c++/16.1.1/bits/sstream.tcc \
- /usr/include/c++/16.1.1/iomanip /usr/include/c++/16.1.1/locale \
- /usr/include/c++/16.1.1/bits/locale_facets_nonio.h \
- /usr/include/c++/16.1.1/ctime \
- /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/time_members.h \
- /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/messages_members.h \
- /usr/include/libintl.h /usr/include/c++/16.1.1/bits/codecvt.h \
- /usr/include/c++/16.1.1/bits/locale_facets_nonio.tcc \
- /usr/include/c++/16.1.1/bits/locale_conv.h \
- /usr/include/c++/16.1.1/bits/quoted_string.h \
- /usr/include/c++/16.1.1/fstream \
- /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/basic_file.h \
- /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++io.h \
- /usr/include/c++/16.1.1/bits/fstream.tcc /usr/include/c++/16.1.1/memory \
- /usr/include/c++/16.1.1/bits/stl_tempbuf.h \
- /usr/include/c++/16.1.1/bits/stl_raw_storage_iter.h \
- /usr/include/c++/16.1.1/bits/align.h \
- /usr/include/c++/16.1.1/bits/unique_ptr.h \
- /usr/include/c++/16.1.1/bits/shared_ptr.h \
- /usr/include/c++/16.1.1/bits/shared_ptr_base.h \
- /usr/include/c++/16.1.1/bits/allocated_ptr.h \
- /usr/include/c++/16.1.1/bits/refwrap.h \
- /usr/include/c++/16.1.1/ext/concurrence.h \
- /usr/include/c++/16.1.1/bits/shared_ptr_atomic.h \
- /usr/include/c++/16.1.1/bits/atomic_base.h \
- /usr/include/c++/16.1.1/bits/atomic_lockfree_defines.h \
- /usr/include/c++/16.1.1/backward/auto_ptr.h \
- /usr/include/c++/16.1.1/pstl/glue_memory_defs.h \
- /usr/include/c++/16.1.1/pstl/execution_defs.h \
- /usr/include/c++/16.1.1/unordered_set \
- /usr/include/c++/16.1.1/bits/unordered_set.h \
- /usr/include/c++/16.1.1/cstdint \
- /usr/lib/gcc/x86_64-pc-linux-gnu/16.1.1/include/stdint.h \
- /usr/include/stdint.h /usr/include/bits/stdint-uintn.h \
- /usr/include/bits/stdint-least.h \
- /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
- /usr/include/c++/16.1.1/cstring /usr/include/string.h \
- /usr/include/strings.h /usr/include/c++/16.1.1/algorithm \
- /usr/include/c++/16.1.1/bits/stl_algo.h \
- /usr/include/c++/16.1.1/bits/algorithmfwd.h \
- /usr/include/c++/16.1.1/bits/stl_heap.h \
- /usr/include/c++/16.1.1/bits/uniform_int_dist.h \
- /usr/include/c++/16.1.1/pstl/glue_algorithm_defs.h
+ /usr/include/c++/16.1.1/bits/ostream.tcc /usr/include/c++/16.1.1/sstream \
+ /usr/include/c++/16.1.1/istream /usr/include/c++/16.1.1/bits/istream.tcc \
+ /usr/include/c++/16.1.1/bits/sstream.tcc \
+ /usr/include/c++/16.1.1/iostream

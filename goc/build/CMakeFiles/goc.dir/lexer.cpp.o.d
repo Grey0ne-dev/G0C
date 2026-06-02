@@ -177,4 +177,5 @@ CMakeFiles/goc.dir/lexer.cpp.o: \
  /usr/include/c++/16.1.1/fstream \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/basic_file.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++io.h \
- /usr/include/c++/16.1.1/bits/fstream.tcc
+ /usr/include/c++/16.1.1/bits/fstream.tcc \
+ /home/grey0/Projects/PetProjects/G0C/goc/logger.h

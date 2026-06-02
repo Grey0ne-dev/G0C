@@ -1,4 +1,5 @@
 #include "codegen.h"
+#include "logger.h"
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -11,10 +12,12 @@ CodeGenerator::CodeGenerator()
 std::vector<uint8_t> CodeGenerator::generate(const Program& program) {
     bytecode.clear();
     symbols.clear();
+    functions.clear();
     current_offset = 0;
     next_memory_addr = 0;
     label_counter = 0;
     
+    collectFunctionSignatures(program);
     genProgram(program);
     fixupLabels();
     
@@ -59,6 +62,34 @@ void CodeGenerator::genProgram(const Program& prog) {
             genStatement(node.get());
         }
     }
+}
+
+void CodeGenerator::collectFunctionSignatures(const Program& prog) {
+    for (const auto& node : prog.top) {
+        if (!node) continue;
+        if (node->kind == ASTNodeKind::FUNC_DECL) {
+            auto func = static_cast<const FunctionDecl*>(node.get());
+            collectFunctionSignature(func, mangleFunctionName(func->funcName, func->params.size()));
+        } else if (node->kind == ASTNodeKind::CLASS_DECL) {
+            auto cls = static_cast<const ClassDecl*>(node.get());
+            for (const auto& member : cls->members) {
+                if (member && member->kind == ASTNodeKind::FUNC_DECL) {
+                    auto func = static_cast<const FunctionDecl*>(member.get());
+                    collectFunctionSignature(func, cls->className + "::" + func->funcName);
+                }
+            }
+        }
+    }
+}
+
+void CodeGenerator::collectFunctionSignature(const FunctionDecl* func, const std::string& nameOverride) {
+    if (!func) return;
+    FunctionSignature sig;
+    sig.returns_float = isFloatType(func->returnTypeTokens);
+    for (const auto& param : func->params) {
+        sig.params_float.push_back(isFloatType(param.first));
+    }
+    functions[nameOverride] = sig;
 }
 
 void CodeGenerator::genStatement(const ASTNode* node) {
@@ -111,7 +142,7 @@ void CodeGenerator::genStatement(const ASTNode* node) {
             // Just skip them silently
             break;
         default:
-            std::cerr << "Warning: Unhandled statement type " 
+            Logger::error() << "Warning: Unhandled statement type "
                       << static_cast<int>(node->kind) << " in codegen\n";
             break;
     }
@@ -145,8 +176,11 @@ void CodeGenerator::genVarDecl(const VarDecl* decl) {
     // Detect float/double variable type (non-pointer, non-array)
     bool is_float_var = !is_pointer && !is_array && isFloatType(decl->typeTokens);
     
-    // Allocate memory address for this variable
-    int addr = next_memory_addr++;
+    // Allocate memory address for this variable. Stack arrays reserve one cell
+    // per element; heap arrays only reserve one cell for the heap pointer.
+    int allocation_size = (decl->isArray && !is_heap_array) ? decl->arraySize : 1;
+    int addr = next_memory_addr;
+    next_memory_addr += allocation_size;
     addVariable(decl->varName, addr, is_array, is_heap_array, is_float_var);
     
     // If there's an initializer, evaluate it and store
@@ -176,8 +210,8 @@ void CodeGenerator::genFunctionDecl(const FunctionDecl* func) {
 
 void CodeGenerator::genFunctionDecl(const FunctionDecl* func, const std::string& nameOverride) {
     // Define function label
-    // DEBUG: // std::cerr << "DBG genFunctionDecl: defining label '" << nameOverride 
-// DEBUG_CONT:               << "' at address " << currentAddress() << std::endl;
+    Logger::debug() << "DBG genFunctionDecl: defining label '" << nameOverride
+                    << "' at address " << currentAddress() << std::endl;
     defineLabel(nameOverride);
     
     // Function prologue
@@ -185,13 +219,11 @@ void CodeGenerator::genFunctionDecl(const FunctionDecl* func, const std::string&
     
     // Parameters are on stack below saved BP
     // After PUSH_BP, stack layout:
-    // [... caller stuff, arg1, arg2, saved_BP] <- BP points here
-    // So: BP-1 = saved_BP, BP-2 = arg2, BP-3 = arg1
-    // Parameters need negative offsets relative to BP
+    // [... caller stuff, argN, ..., arg2, arg1, saved_BP] <- BP points here.
+    // cdecl-style callers push right-to-left, so arg1 is BP-2.
     int param_count = func->params.size();
     for (int i = 0; i < param_count; i++) {
-        // First param is at BP-(param_count+1), last param at BP-2
-        int offset = -(param_count - i + 1);
+        int offset = -(i + 2);
         
         // Check if parameter is a pointer/array
         bool is_pointer = false;
@@ -206,11 +238,16 @@ void CodeGenerator::genFunctionDecl(const FunctionDecl* func, const std::string&
         Symbol sym;
         sym.type = Symbol::PARAMETER;
         sym.offset = offset;
+        sym.address = 0;
+        sym.param_count = 0;
         sym.is_array = is_pointer;  // Pointers and arrays treated same
+        sym.is_heap_allocated = false;
+        sym.is_float = !is_pointer && isFloatType(type_tokens);
         symbols[func->params[i].second] = sym;
         
-        // DEBUG: // std::cerr << "DBG addParam: '" << func->params[i].second 
-// DEBUG_CONT:                   << "' offset=" << offset << " is_array=" << is_pointer << std::endl;
+        Logger::debug() << "DBG addParam: '" << func->params[i].second
+                        << "' offset=" << offset << " is_array=" << is_pointer
+                        << " is_float=" << sym.is_float << std::endl;
     }
     
     // Generate function body
@@ -342,7 +379,7 @@ void CodeGenerator::genExpression(const ASTNode* node) {
             emitInt32(0);
             break;
         default:
-            std::cerr << "Warning: Unhandled expression type " 
+            Logger::error() << "Warning: Unhandled expression type "
                       << static_cast<int>(node->kind) << " in codegen\n";
             emit(Opcode::PUSH);
             emitInt32(0); // Push dummy value
@@ -425,9 +462,15 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
                     if (!isFloatExpr(binop->right.get())) {
                         emit(Opcode::INT_TO_FP);
                     }
-                    emit(Opcode::FDUP);              // keep copy for expression result
-                    emit(Opcode::FSTORE);
-                    emitInt32(sym->offset);
+                    emit(Opcode::FDUP); // keep copy for expression result
+                    if (sym->type == Symbol::PARAMETER) {
+                        emit(Opcode::FP_TO_BITS);
+                        emit(Opcode::STORE_BP);
+                        emitInt32(sym->offset);
+                    } else {
+                        emit(Opcode::FSTORE);
+                        emitInt32(sym->offset);
+                    }
                 } else if (sym->type == Symbol::PARAMETER) {
                     // Parameters use BP-relative addressing
                     emit(Opcode::DUP); // Keep value for expression result
@@ -893,27 +936,45 @@ void CodeGenerator::genCall(const CallExpr* call) {
             return;
         }
         
-        // Regular function call - push arguments first
+        // Regular function call. VM cdecl-style convention:
+        // caller pushes arguments right-to-left and cleans them after RET.
         int arg_count = call->args.size();
-        for (const auto& arg : call->args) {
-            genExpression(arg.get());
-        }
-        
-        // Use name mangling for function calls
         std::string mangled_name = mangleFunctionName(id->name, arg_count);
-        // DEBUG: // std::cerr << "DBG genCall: calling '" << id->name << "' with " << arg_count 
-// DEBUG_CONT:                   << " args -> mangled: '" << mangled_name << "'" << std::endl;
+        auto sig_it = functions.find(mangled_name);
+        const FunctionSignature* sig = (sig_it != functions.end()) ? &sig_it->second : nullptr;
+
+        for (int i = arg_count - 1; i >= 0; --i) {
+            const auto& arg = call->args[static_cast<size_t>(i)];
+            bool expr_is_float = isFloatExpr(arg.get());
+            bool param_is_float = sig && static_cast<size_t>(i) < sig->params_float.size()
+                                  && sig->params_float[static_cast<size_t>(i)];
+
+            genExpression(arg.get());
+            if (param_is_float) {
+                if (!expr_is_float) {
+                    emit(Opcode::INT_TO_FP);
+                }
+                emit(Opcode::FP_TO_BITS);
+            } else if (expr_is_float) {
+                emit(Opcode::FP_TO_INT);
+            }
+        }
+
+        Logger::debug() << "DBG genCall: calling '" << id->name << "' with " << arg_count
+                        << " args -> mangled: '" << mangled_name << "'" << std::endl;
         emitJump(Opcode::CALL, mangled_name);
-        
-        // Clean up arguments from stack after return
-        // Stack layout after RET: [arg1, arg2, ..., argN, retval]
-        // We want: [retval]
+
         if (arg_count > 0) {
-            // Stack after CALL: [arg1, ..., argN, retval]
-            // Remove arguments while preserving retval using SWAP+POP per argument.
-            for (int i = 0; i < arg_count; i++) {
-                emit(Opcode::SWAP);
-                emit(Opcode::POP);
+            bool returns_float = sig && sig->returns_float;
+            if (returns_float) {
+                for (int i = 0; i < arg_count; i++) {
+                    emit(Opcode::POP);
+                }
+            } else {
+                for (int i = 0; i < arg_count; i++) {
+                    emit(Opcode::SWAP);
+                    emit(Opcode::POP);
+                }
             }
         }
     }
@@ -934,7 +995,7 @@ void CodeGenerator::genLiteral(const Literal* lit) {
         try {
             fval = std::stof(lit->value);
         } catch (...) {
-            std::cerr << "Warning: Could not parse float literal: " << lit->value << "\n";
+            Logger::error() << "Warning: Could not parse float literal: " << lit->value << "\n";
         }
         emit(Opcode::FPUSH);
         emitFloat32(fval);
@@ -957,7 +1018,7 @@ void CodeGenerator::genLiteral(const Literal* lit) {
             try {
                 value = static_cast<int>(std::stof(lit->value));
             } catch (...) {
-                std::cerr << "Warning: Could not parse literal: " << lit->value << "\n";
+                Logger::error() << "Warning: Could not parse literal: " << lit->value << "\n";
             }
         }
     }
@@ -997,7 +1058,11 @@ void CodeGenerator::genIdentifier(const Identifier* id) {
                 emitInt32(sym->offset);
             }
         } else if (sym->type == Symbol::PARAMETER) {
-            if (sym->is_array) {
+            if (sym->is_float) {
+                emit(Opcode::LOAD_BP);
+                emitInt32(sym->offset);
+                emit(Opcode::BITS_TO_FP);
+            } else if (sym->is_array) {
                 // For array/pointer parameters: push the value (which is already an address)
                 emit(Opcode::LOAD_BP);
                 emitInt32(sym->offset);
@@ -1096,6 +1161,14 @@ bool CodeGenerator::isFloatExpr(const ASTNode* node) {
             }
             return isFloatExpr(bin->left.get()) || isFloatExpr(bin->right.get());
         }
+        case ASTNodeKind::CALL: {
+            auto call = static_cast<const CallExpr*>(node);
+            if (call->callee->kind != ASTNodeKind::IDENTIFIER) return false;
+            auto id = static_cast<const Identifier*>(call->callee.get());
+            std::string mangled_name = mangleFunctionName(id->name, call->args.size());
+            auto it = functions.find(mangled_name);
+            return it != functions.end() && it->second.returns_float;
+        }
         case ASTNodeKind::UNARY_OP: {
             auto un = static_cast<const UnaryOp*>(node);
             return isFloatExpr(un->operand.get());
@@ -1124,7 +1197,7 @@ void CodeGenerator::emitJump(Opcode op, const std::string& label) {
 void CodeGenerator::fixupLabels() {
     for (auto& [name, label] : labels) {
         if (!label.defined) {
-            std::cerr << "Error: Undefined label: " << name << "\n";
+            Logger::error() << "Error: Undefined label: " << name << "\n";
             continue;
         }
         
@@ -1139,14 +1212,14 @@ int CodeGenerator::addString(const std::string& str) {
     // Check if string already exists
     for (size_t i = 0; i < string_table.size(); i++) {
         if (string_table[i] == str) {
-            // DEBUG: // std::cerr << "DBG addString: existing id=" << i << " str='" << str << "'\n";
+            Logger::debug() << "DBG addString: existing id=" << i << " str='" << str << "'\n";
             return i;
         }
     }
     // Add new string
     string_table.push_back(str);
     int id = string_table.size() - 1;
-    // DEBUG: // std::cerr << "DBG addString: new id=" << id << " str='" << str << "'\n";
+    Logger::debug() << "DBG addString: new id=" << id << " str='" << str << "'\n";
     return id;
 }
 
@@ -1197,19 +1270,23 @@ void CodeGenerator::addVariable(const std::string& name, int offset, bool is_arr
     Symbol sym;
     sym.type = Symbol::VARIABLE;
     sym.offset = offset;
+    sym.address = 0;
+    sym.param_count = 0;
     sym.is_array = is_array;
     sym.is_heap_allocated = is_heap_allocated;
     sym.is_float = is_float;
     symbols[name] = sym;
     
-    // DEBUG: // std::cerr << "DBG addVariable: '" << name << "' offset=" << offset 
-// DEBUG_CONT:               << " is_array=" << is_array << std::endl;
+    Logger::debug() << "DBG addVariable: '" << name << "' offset=" << offset
+                    << " is_array=" << is_array << std::endl;
 }
 
 void CodeGenerator::addParameter(const std::string& name, int offset) {
     Symbol sym;
     sym.type = Symbol::PARAMETER;
     sym.offset = offset;
+    sym.address = 0;
+    sym.param_count = 0;
     sym.is_array = false;  // Will be updated for pointer/array params
     sym.is_heap_allocated = false;
     sym.is_float = false;
@@ -1219,6 +1296,7 @@ void CodeGenerator::addParameter(const std::string& name, int offset) {
 void CodeGenerator::addFunction(const std::string& name, int address, int param_count) {
     Symbol sym;
     sym.type = Symbol::FUNCTION;
+    sym.offset = 0;
     sym.address = address;
     sym.param_count = param_count;
     sym.is_array = false;
@@ -1238,13 +1316,13 @@ Symbol* CodeGenerator::findSymbol(const std::string& name) {
 bool CodeGenerator::saveToFile(const std::string& filename) {
     std::ofstream file(filename, std::ios::binary);
     if (!file) {
-        std::cerr << "Error: Could not open file: " << filename << "\n";
+        Logger::error() << "Error: Could not open file: " << filename << "\n";
         return false;
     }
     
     // Write string table size
     uint32_t str_count = string_table.size();
-    // DEBUG: // std::cerr << "DBG saveToFile: str_count=" << str_count << "\n";
+    Logger::debug() << "DBG saveToFile: str_count=" << str_count << "\n";
     file.write(reinterpret_cast<const char*>(&str_count), sizeof(str_count));
     
     // Write each string (length + data)
@@ -1264,19 +1342,19 @@ bool CodeGenerator::saveToFile(const std::string& filename) {
 }
 
 void CodeGenerator::dumpBytecode() const {
-    std::cout << "\n=== Function Labels (Name Mangling) ===\n";
+    Logger::out() << "\n=== Function Labels (Name Mangling) ===\n";
     for (const auto& label : labels) {
         if (label.second.defined) {
-            std::cout << "  " << label.first << " @ address " << label.second.address << std::endl;
+            Logger::out() << "  " << label.first << " @ address " << label.second.address << std::endl;
         }
     }
     
-    std::cout << "\n=== Generated Bytecode ===\n";
-    std::cout << "Size: " << bytecode.size() << " bytes\n\n";
+    Logger::out() << "\n=== Generated Bytecode ===\n";
+    Logger::out() << "Size: " << bytecode.size() << " bytes\n\n";
     
     for (size_t i = 0; i < bytecode.size(); ) {
-        std::cout << std::setw(4) << std::setfill('0') << i << ": ";
-        std::cout << std::hex << std::setw(2) << std::setfill('0') 
+        Logger::out() << std::setw(4) << std::setfill('0') << i << ": ";
+        Logger::out() << std::hex << std::setw(2) << std::setfill('0')
                   << static_cast<int>(bytecode[i]);
         
         Opcode op = static_cast<Opcode>(bytecode[i]);
@@ -1289,7 +1367,7 @@ void CodeGenerator::dumpBytecode() const {
             if (i + 4 <= bytecode.size()) {
                 int32_t value = bytecode[i] | (bytecode[i+1] << 8) | 
                                (bytecode[i+2] << 16) | (bytecode[i+3] << 24);
-                std::cout << " " << std::hex << std::setw(2) << std::setfill('0')
+                Logger::out() << " " << std::hex << std::setw(2) << std::setfill('0')
                          << static_cast<int>(bytecode[i]) << " "
                          << std::hex << std::setw(2) << std::setfill('0')
                          << static_cast<int>(bytecode[i+1]) << " "
@@ -1297,14 +1375,14 @@ void CodeGenerator::dumpBytecode() const {
                          << static_cast<int>(bytecode[i+2]) << " "
                          << std::hex << std::setw(2) << std::setfill('0')
                          << static_cast<int>(bytecode[i+3]);
-                std::cout << " (" << std::dec << value << ")";
+                Logger::out() << " (" << std::dec << value << ")";
                 i += 4;
             }
         }
         
-        std::cout << std::dec << "\n";
+        Logger::out() << std::dec << "\n";
     }
-    std::cout << "\n";
+    Logger::out() << "\n";
 }
 
 void CodeGenerator::enterScope() {

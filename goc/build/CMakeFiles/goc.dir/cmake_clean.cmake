@@ -4,6 +4,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/goc.dir/codegen.cpp.o.d"
   "CMakeFiles/goc.dir/lexer.cpp.o"
   "CMakeFiles/goc.dir/lexer.cpp.o.d"
+  "CMakeFiles/goc.dir/logger.cpp.o"
+  "CMakeFiles/goc.dir/logger.cpp.o.d"
   "CMakeFiles/goc.dir/main.cpp.o"
   "CMakeFiles/goc.dir/main.cpp.o.d"
   "CMakeFiles/goc.dir/parser.cpp.o"

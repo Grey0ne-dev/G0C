@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Compiler executable
 add_executable(goc 
     main.cpp
+    logger.cpp
     lexer.cpp
     parser.cpp
     codegen.cpp
@@ -14,6 +15,6 @@ add_executable(goc
 # Virtual Machine executable
 add_executable(vm 
     vm_main.cpp
+    logger.cpp
     vm.cpp
 )
-

@@ -59,6 +59,8 @@ enum class Opcode : uint8_t {
     FDUP        = 0x3B,  // push copy of ST0
     INT_TO_FP   = 0x3C,  // pop int stack, convert, push to FPU
     FP_TO_INT   = 0x3D,  // pop FPU, truncate, push to int stack
+    FP_TO_BITS  = 0x3E,  // pop FPU, push raw IEEE-754 bits to int stack
+    BITS_TO_FP  = 0x3F,  // pop raw IEEE-754 bits, push to FPU stack
 
     HALT        = 0xFF
 };
@@ -73,6 +75,11 @@ struct Symbol {
     bool is_array;   // True if this is an array or pointer
     bool is_heap_allocated; // True if allocated with "new"
     bool is_float;   // True if this is a float/double variable
+};
+
+struct FunctionSignature {
+    bool returns_float = false;
+    std::vector<bool> params_float;
 };
 
 class CodeGenerator {
@@ -94,6 +101,7 @@ public:
 private:
     std::vector<uint8_t> bytecode;
     std::unordered_map<std::string, Symbol> symbols;
+    std::unordered_map<std::string, FunctionSignature> functions;
     std::unordered_set<std::string> class_names;  // Track class/struct names
     std::vector<std::string> string_table;        // String literals
     int current_offset;     // Current stack offset
@@ -159,6 +167,8 @@ private:
     static bool isFloatType(const std::vector<std::string>& typeTokens);
     bool isFloatExpr(const ASTNode* node);
     void emitFloat32(float value);
+    void collectFunctionSignatures(const Program& prog);
+    void collectFunctionSignature(const FunctionDecl* func, const std::string& nameOverride);
 };
 
 #endif // CODEGEN_H

@@ -1,4 +1,5 @@
 #include "vm.h"
+#include "logger.h"
 #include <fstream>
 #include <iomanip>
 #include <cstring>
@@ -104,8 +105,8 @@ void VirtualMachine::reset() {
 
 void VirtualMachine::run() {
     if (debug_mode) {
-        std::cout << "Bytecode size: " << bytecode.size() << " bytes\n";
-        std::cout << "Starting execution from IP=" << instruction_pointer << "\n\n";
+        Logger::debug() << "Bytecode size: " << bytecode.size() << " bytes\n";
+        Logger::debug() << "Starting execution from IP=" << instruction_pointer << "\n\n";
     }
     
     while (!halted && !error_flag) {
@@ -113,8 +114,8 @@ void VirtualMachine::run() {
     }
     
     if (error_flag) {
-        std::cerr << "\n❌ VM Error: " << error_message << std::endl;
-        std::cerr << "Instruction Pointer: " << instruction_pointer << std::endl;
+        Logger::error() << "\n❌ VM Error: " << error_message << std::endl;
+        Logger::error() << "Instruction Pointer: " << instruction_pointer << std::endl;
     }
 }
 
@@ -127,7 +128,7 @@ void VirtualMachine::step() {
     }
     
     if (debug_mode) {
-        std::cout << "[" << instruction_pointer << "] ";
+        Logger::debug() << "[" << instruction_pointer << "] ";
     }
     
     executeInstruction();
@@ -143,7 +144,7 @@ void VirtualMachine::executeInstruction() {
     VMOpcode op = static_cast<VMOpcode>(opcode_byte);
     
     if (debug_mode) {
-        std::cout << opcodeToString(op) << std::endl;
+        Logger::debug() << opcodeToString(op) << std::endl;
     }
     
     switch (op) {
@@ -340,19 +341,25 @@ void VirtualMachine::executeInstruction() {
             break;
         
         case VMOpcode::POP_BP:
-            // Restore BP from saved location at stack[BP-1]
+            // Restore BP from saved location at stack[BP-1] and remove the
+            // saved-BP slot. Return values above it remain on the stack.
             if (base_pointer == 0 || base_pointer > stack.size()) {
                 error("Invalid base pointer in POP_BP");
                 return;
             }
-            base_pointer = static_cast<size_t>(stack[base_pointer - 1]);
+            {
+                size_t saved_bp_index = base_pointer - 1;
+                size_t saved_bp = static_cast<size_t>(stack[saved_bp_index]);
+                stack.erase(stack.begin() + static_cast<std::ptrdiff_t>(saved_bp_index));
+                base_pointer = saved_bp;
+            }
             break;
         
         case VMOpcode::LOAD: {
             int32_t addr = readInt32();
             int32_t value = loadMemory(addr);
             if (debug_mode) {
-                std::cerr << "LOAD addr=" << addr << " value=" << value << "\n";
+                Logger::debug() << "LOAD addr=" << addr << " value=" << value << "\n";
             }
             push(value);
             break;
@@ -362,7 +369,7 @@ void VirtualMachine::executeInstruction() {
             int32_t addr = pop();
             int32_t value = pop();
             if (debug_mode) {
-                std::cerr << "STORE addr=" << addr << " value=" << value << "\n";
+                Logger::debug() << "STORE addr=" << addr << " value=" << value << "\n";
             }
             storeMemory(addr, value);
             break;
@@ -373,14 +380,14 @@ void VirtualMachine::executeInstruction() {
             // Handle negative offsets correctly (for parameters)
             int64_t addr = static_cast<int64_t>(base_pointer) + static_cast<int64_t>(offset);
             if (addr < 0 || addr >= static_cast<int64_t>(stack.size())) {
-                std::cerr << "DEBUG: LOAD_BP offset=" << offset << " BP=" << base_pointer 
+                Logger::debug() << "DEBUG: LOAD_BP offset=" << offset << " BP=" << base_pointer
                          << " addr=" << addr << " stack_size=" << stack.size() << "\n";
                 error("BP-relative load out of bounds");
                 return;
             }
             int32_t value = stack[static_cast<size_t>(addr)];
             if (debug_mode) {
-                std::cerr << "LOAD_BP offset=" << offset << " BP=" << base_pointer 
+                Logger::debug() << "LOAD_BP offset=" << offset << " BP=" << base_pointer
                          << " addr=" << addr << " value=" << value << "\n";
             }
             push(value);
@@ -407,7 +414,7 @@ void VirtualMachine::executeInstruction() {
             int32_t addr = pop();
             int32_t value = loadMemory(addr);
             if (debug_mode) {
-                std::cerr << "LOAD_INDIRECT addr=" << addr << " value=" << value << "\n";
+                Logger::debug() << "LOAD_INDIRECT addr=" << addr << " value=" << value << "\n";
             }
             push(value);
             break;
@@ -417,7 +424,7 @@ void VirtualMachine::executeInstruction() {
             int32_t addr = pop();
             int32_t value = pop();
             if (debug_mode) {
-                std::cerr << "STORE_INDIRECT addr=" << addr << " value=" << value << "\n";
+                Logger::debug() << "STORE_INDIRECT addr=" << addr << " value=" << value << "\n";
             }
             storeMemory(addr, value);
             break;
@@ -515,7 +522,7 @@ void VirtualMachine::executeInstruction() {
         
         case VMOpcode::FPRINT: {
             float val = fpop();
-            std::cout << val;
+            Logger::out() << val;
             break;
         }
         
@@ -547,6 +554,22 @@ void VirtualMachine::executeInstruction() {
         case VMOpcode::FP_TO_INT: {
             float fval = fpop();
             push(static_cast<int32_t>(fval));
+            break;
+        }
+
+        case VMOpcode::FP_TO_BITS: {
+            float fval = fpop();
+            int32_t bits = 0;
+            std::memcpy(&bits, &fval, sizeof(float));
+            push(bits);
+            break;
+        }
+
+        case VMOpcode::BITS_TO_FP: {
+            int32_t bits = pop();
+            float fval = 0.0f;
+            std::memcpy(&fval, &bits, sizeof(float));
+            fpush(fval);
             break;
         }
         
@@ -710,7 +733,7 @@ uint8_t VirtualMachine::readByte() {
     }
     uint8_t byte = bytecode[instruction_pointer++];
     if (debug_mode) {
-        std::cerr << "  readByte at " << (instruction_pointer-1) << ": 0x" 
+        Logger::debug() << "  readByte at " << (instruction_pointer-1) << ": 0x"
                   << std::hex << static_cast<int>(byte) << std::dec << std::endl;
     }
     return byte;
@@ -758,11 +781,11 @@ int32_t VirtualMachine::getField(int32_t objId, const std::string& field) {
 
 // Cross-platform I/O implementations
 void VirtualMachine::printValue(int32_t value) {
-    std::cout << value;
+    Logger::out() << value;
 }
 
 void VirtualMachine::printString(const std::string& str) {
-    std::cout << str;
+    Logger::out() << str;
 }
 
 int32_t VirtualMachine::inputNumber() {
@@ -821,25 +844,25 @@ float VirtualMachine::readFloat32() {
 }
 
 void VirtualMachine::dumpStack() const {
-    std::cout << "\n=== Stack Dump ===" << std::endl;
-    std::cout << "Size: " << stack.size() << std::endl;
+    Logger::out() << "\n=== Stack Dump ===" << std::endl;
+    Logger::out() << "Size: " << stack.size() << std::endl;
     
     if (stack.empty()) {
-        std::cout << "(empty)" << std::endl;
+        Logger::out() << "(empty)" << std::endl;
         return;
     }
     
     for (int i = static_cast<int>(stack.size()) - 1; i >= 0; i--) {
-        std::cout << "[" << i << "] " << stack[i];
+        Logger::out() << "[" << i << "] " << stack[i];
         if (i == static_cast<int>(base_pointer)) {
-            std::cout << " <-- BP";
+            Logger::out() << " <-- BP";
         }
-        std::cout << std::endl;
+        Logger::out() << std::endl;
     }
 }
 
 void VirtualMachine::dumpMemory() const {
-    std::cout << "\n=== Memory Dump ===" << std::endl;
+    Logger::out() << "\n=== Memory Dump ===" << std::endl;
     bool has_data = false;
     
     for (size_t i = 0; i < memory.size(); i++) {
@@ -847,32 +870,32 @@ void VirtualMachine::dumpMemory() const {
             if (!has_data) {
                 has_data = true;
             }
-            std::cout << "[" << i << "] = " << memory[i] << std::endl;
+            Logger::out() << "[" << i << "] = " << memory[i] << std::endl;
         }
     }
     
     if (!has_data) {
-        std::cout << "(all zeros)" << std::endl;
+        Logger::out() << "(all zeros)" << std::endl;
     }
 }
 
 void VirtualMachine::disassemble() const {
-    std::cout << "\n=== Bytecode Disassembly ===" << std::endl;
-    std::cout << "Bytecode size: " << bytecode.size() << " bytes" << std::endl;
-    std::cout << "First 10 bytes (hex): ";
+    Logger::out() << "\n=== Bytecode Disassembly ===" << std::endl;
+    Logger::out() << "Bytecode size: " << bytecode.size() << " bytes" << std::endl;
+    Logger::out() << "First 10 bytes (hex): ";
     for (size_t i = 0; i < std::min(size_t(10), bytecode.size()); i++) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytecode[i]) << " ";
+        Logger::out() << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytecode[i]) << " ";
     }
-    std::cout << std::dec << std::endl << std::endl;
+    Logger::out() << std::dec << std::endl << std::endl;
     
     size_t ip = 0;
     while (ip < bytecode.size()) {
-        std::cout << std::setw(6) << ip << ": ";
+        Logger::out() << std::setw(6) << ip << ": ";
         
         uint8_t opcode = bytecode[ip++];
         VMOpcode op = static_cast<VMOpcode>(opcode);
         
-        std::cout << opcodeToString(op);
+        Logger::out() << opcodeToString(op);
         
         // Print operands for instructions that have them
         switch (op) {
@@ -894,7 +917,7 @@ void VirtualMachine::disassemble() const {
                 if (ip + 4 <= bytecode.size()) {
                     int32_t value;
                     std::memcpy(&value, &bytecode[ip], sizeof(int32_t));
-                    std::cout << " " << value;
+                    Logger::out() << " " << value;
                     ip += 4;
                 }
                 break;
@@ -902,7 +925,7 @@ void VirtualMachine::disassemble() const {
                 if (ip + 4 <= bytecode.size()) {
                     float fvalue;
                     std::memcpy(&fvalue, &bytecode[ip], sizeof(float));
-                    std::cout << " " << fvalue;
+                    Logger::out() << " " << fvalue;
                     ip += 4;
                 }
                 break;
@@ -910,23 +933,23 @@ void VirtualMachine::disassemble() const {
                 break;
         }
         
-        std::cout << std::endl;
+        Logger::out() << std::endl;
     }
 }
 
 void VirtualMachine::printStats() const {
-    std::cout << "\n=== VM Statistics ===" << std::endl;
-    std::cout << "Instructions executed: " << instruction_count << std::endl;
-    std::cout << "Max stack depth: " << max_stack_size << std::endl;
-    std::cout << "Objects created: " << (next_object_id - 1) << std::endl;
-    std::cout << "Static memory allocated: " << memory.size() << " cells" << std::endl;
-    std::cout << "Heap size: " << heap.size() << " cells" << std::endl;
-    std::cout << "Heap blocks: " << heap_blocks.size() << " (";
+    Logger::out() << "\n=== VM Statistics ===" << std::endl;
+    Logger::out() << "Instructions executed: " << instruction_count << std::endl;
+    Logger::out() << "Max stack depth: " << max_stack_size << std::endl;
+    Logger::out() << "Objects created: " << (next_object_id - 1) << std::endl;
+    Logger::out() << "Static memory allocated: " << memory.size() << " cells" << std::endl;
+    Logger::out() << "Heap size: " << heap.size() << " cells" << std::endl;
+    Logger::out() << "Heap blocks: " << heap_blocks.size() << " (";
     size_t allocated_blocks = 0;
     for (const auto& block : heap_blocks) {
         if (block.allocated) allocated_blocks++;
     }
-    std::cout << allocated_blocks << " allocated, " 
+    Logger::out() << allocated_blocks << " allocated, "
               << (heap_blocks.size() - allocated_blocks) << " free)" << std::endl;
 }
 
@@ -980,6 +1003,8 @@ std::string VirtualMachine::opcodeToString(VMOpcode op) const {
         case VMOpcode::FDUP: return "FDUP";
         case VMOpcode::INT_TO_FP: return "INT_TO_FP";
         case VMOpcode::FP_TO_INT: return "FP_TO_INT";
+        case VMOpcode::FP_TO_BITS: return "FP_TO_BITS";
+        case VMOpcode::BITS_TO_FP: return "BITS_TO_FP";
         case VMOpcode::HALT: return "HALT";
         default: return "UNKNOWN";
     }

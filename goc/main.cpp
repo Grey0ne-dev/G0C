@@ -1,16 +1,18 @@
 #include "lexer.h"
 #include "parser.h"
 #include "codegen.h"
+#include "logger.h"
 #include <iostream>
 #include <string>
 
 void printHelp() {
-    std::cout << "Usage: compiler [options] <input file>\n"
+    Logger::out() << "Usage: compiler [options] <input file>\n"
               << "Options:\n"
               << "  -h, --help            Show this help message\n"
               << "  -s, --stats           Show only statistics\n"
               << "  -o, --output <file>   Save bytecode to file\n"
               << "  -v, --verbose         Enable verbose output\n"
+              << "  -d, --debug           Enable internal debug logging\n"
               << "  -q, --quiet           Suppress all verbose output\n"
               << "  --stage <name>        Stop at specific stage: lex | parse | codegen\n"
               << "  --dump-ast            Dump Abstract Syntax Tree\n"
@@ -23,6 +25,8 @@ struct CompilerFlags {
     bool show_help = false;
     bool show_stats_only = false;
     bool verbose = false;
+    bool quiet = false;
+    bool debug = false;
     bool dump_ast = false;
     bool dump_tokens = false;
     bool dump_bytecode = false;
@@ -37,9 +41,9 @@ bool parse_command_line(int argc, char** argv, CompilerFlags& flags) {
         std::string arg = argv[i];
 
         if (arg == "--version") {
-            std::cout << "GOC version: " << flags.version << std::endl;
-            std::cout << "This is free software; see the source for copying conditions.  There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
-            std::cout << std::endl;
+            Logger::out() << "GOC version: " << flags.version << std::endl;
+            Logger::out() << "This is free software; see the source for copying conditions.  There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
+            Logger::out() << std::endl;
             exit(0);
         }
         else if (arg == "-h" || arg == "--help") {
@@ -51,18 +55,22 @@ bool parse_command_line(int argc, char** argv, CompilerFlags& flags) {
             if (i + 1 < argc) {
                 flags.output_file = argv[++i];
             } else {
-                std::cerr << "Error: missing filename after -o option\n";
+                Logger::error() << "Error: missing filename after -o option\n";
                 exit(1);
             }
         } else if (arg == "-v" || arg == "--verbose") {
             flags.verbose = true;
+            flags.quiet = false;
+        } else if (arg == "-d" || arg == "--debug") {
+            flags.debug = true;
         } else if (arg == "-q" || arg == "--quiet") {
             flags.verbose = false;
+            flags.quiet = true;
         } else if (arg == "--stage") {
             if (i + 1 < argc) {
                 flags.stage = argv[++i];
             } else {
-                std::cerr << "Error: missing argument after --stage\n";
+                Logger::error() << "Error: missing argument after --stage\n";
                 exit(1);
             }
         } else if (arg == "--dump-ast") {
@@ -72,7 +80,7 @@ bool parse_command_line(int argc, char** argv, CompilerFlags& flags) {
         } else if (arg == "--dump-bytecode") {
             flags.dump_bytecode = true;
         } else if (arg[0] == '-') {
-            std::cerr << "Undefined option: " << arg << "\n";
+            Logger::error() << "Undefined option: " << arg << "\n";
             printHelp();
             exit(1);
         } else {
@@ -85,9 +93,9 @@ bool parse_command_line(int argc, char** argv, CompilerFlags& flags) {
 
 Lexer performLexicalAnalysis(const std::string& input_file, const CompilerFlags& flags) {
     if (flags.verbose) {
-        std::cout << "=== C++ Compiler Frontend ===\n";
-        std::cout << "Input file: " << input_file << "\n";
-        std::cout << "\n[1. Lexical Analysis]\n";
+        Logger::out() << "=== C++ Compiler Frontend ===\n";
+        Logger::out() << "Input file: " << input_file << "\n";
+        Logger::out() << "\n[1. Lexical Analysis]\n";
     }
 
     std::string source_code = readFile(input_file);
@@ -95,14 +103,14 @@ Lexer performLexicalAnalysis(const std::string& input_file, const CompilerFlags&
     auto tokens = lexer.tokenize();
 
     if (lexer.hasErrors()) {
-        std::cerr << "\nLexical errors detected. Stopping.\n";
+        Logger::error() << "\nLexical errors detected. Stopping.\n";
         exit(1);
     }
 
     if (flags.dump_tokens) {
         lexer.printTokens(true);
-    } else {
-        std::cout << "Tokens generated: " << tokens.size() << "\n";
+    } else if (!flags.quiet && !flags.show_stats_only) {
+        Logger::out() << "Tokens generated: " << tokens.size() << "\n";
     }
 
     if (flags.show_stats_only) {
@@ -112,13 +120,17 @@ Lexer performLexicalAnalysis(const std::string& input_file, const CompilerFlags&
     return lexer;
 }
 
-Program performParsing(const std::vector<Token>& tokens) {
-    std::cout << "Syntax analysis: building AST...\n";
+Program performParsing(const std::vector<Token>& tokens, const CompilerFlags& flags) {
+    if (!flags.quiet) {
+        Logger::out() << "Syntax analysis: building AST...\n";
+    }
     Parser parser(tokens);
     Program ast = parser.parseProgram();
 
-    std::cout << "✓ Parsing completed successfully!\n";
-    std::cout << "Top-level declarations: " << ast.top.size() << "\n";
+    if (!flags.quiet) {
+        Logger::out() << "✓ Parsing completed successfully!\n";
+        Logger::out() << "Top-level declarations: " << ast.top.size() << "\n";
+    }
 
     return ast;
 }
@@ -126,11 +138,11 @@ Program performParsing(const std::vector<Token>& tokens) {
 void saveBytecodeToFile(CodeGenerator& codegen, const std::string& output_file, bool verbose) {
     if (!output_file.empty()) {
         if (!codegen.saveToFile(output_file)) {
-            std::cerr << "Error: Failed to save bytecode to file\n";
+            Logger::error() << "Error: Failed to save bytecode to file\n";
             exit(1);
         }
         if (verbose) {
-            std::cout << "✓ Bytecode saved to: " << output_file << "\n";
+            Logger::out() << "✓ Bytecode saved to: " << output_file << "\n";
         }
     }
 }
@@ -139,6 +151,7 @@ int main(int argc, char* argv[]) {
     CompilerFlags flags;
     
     parse_command_line(argc, argv, flags);
+    Logger::setDebugEnabled(flags.debug);
 
     if (flags.show_help) {
         printHelp();
@@ -146,7 +159,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (flags.input_file.empty()) {
-        std::cerr << "Input file is not specified\n";
+        Logger::error() << "Input file is not specified\n";
         printHelp();
         return 1;
     }
@@ -156,44 +169,54 @@ int main(int argc, char* argv[]) {
         Lexer lexer = performLexicalAnalysis(flags.input_file, flags);
         auto tokens = lexer.tokenize();
 
+        if (flags.show_stats_only) {
+            return 0;
+        }
+
         if (flags.stage == "lex") {
-            if (flags.verbose) std::cout << "\nStopping after lexical analysis (--stage lex)\n";
+            if (flags.verbose) Logger::out() << "\nStopping after lexical analysis (--stage lex)\n";
 
             if (!flags.output_file.empty()) {
                 if (lexer.saveTokensToFile(flags.output_file)) {
-                    std::cout << "Tokens saved to: " << flags.output_file << "\n";
+                    if (!flags.quiet) {
+                        Logger::out() << "Tokens saved to: " << flags.output_file << "\n";
+                    }
                 } else {
-                    std::cerr << "Error: could not save tokens to file " << flags.output_file << "\n";
+                    Logger::error() << "Error: could not save tokens to file " << flags.output_file << "\n";
                 }
             }
             return 0;
         }
 
         // --- STEP 2: PARSING ---
-        Program ast = performParsing(tokens);
+        Program ast = performParsing(tokens, flags);
 
         if (flags.dump_ast) {
-            std::cout << "\n[Abstract Syntax Tree]\n";
-            std::cout << "=======================\n";
+            Logger::out() << "\n[Abstract Syntax Tree]\n";
+            Logger::out() << "=======================\n";
             ast.dump();
-            std::cout << "\n";
+            Logger::out() << "\n";
         }
 
         if (flags.stage == "parse") {
             if (flags.verbose) {
-                std::cout << "\n✓ Stopping after parsing (--stage parse)\n";
-                std::cout << "✓ AST contains " << ast.top.size() << " top-level nodes\n";
+                Logger::out() << "\n✓ Stopping after parsing (--stage parse)\n";
+                Logger::out() << "✓ AST contains " << ast.top.size() << " top-level nodes\n";
             }
             return 0;
         }
 
         // --- STEP 3: CODE GENERATION ---
-        std::cout << "Code generation: generating bytecode...\n";
+        if (!flags.quiet) {
+            Logger::out() << "Code generation: generating bytecode...\n";
+        }
         CodeGenerator codegen;
         auto bytecode = codegen.generate(ast);
 
-        std::cout << "✓ Code generation completed!\n";
-        std::cout << "Generated " << bytecode.size() << " bytes of bytecode\n";
+        if (!flags.quiet) {
+            Logger::out() << "✓ Code generation completed!\n";
+            Logger::out() << "Generated " << bytecode.size() << " bytes of bytecode\n";
+        }
 
         if (flags.dump_bytecode) {
             codegen.dumpBytecode();
@@ -214,24 +237,28 @@ int main(int argc, char* argv[]) {
         }
 
         if (flags.stage == "codegen") {
-            std::cout << "Stopping after code generation (--stage codegen)\n";
+            if (!flags.quiet) {
+                Logger::out() << "Stopping after code generation (--stage codegen)\n";
+            }
             return 0;
         }
 
         // --- FINAL SUMMARY ---
-        std::cout << "\n=== Compilation Summary ===\n";
-        std::cout << "Lexical analysis: " << tokens.size() << " tokens\n";
-        std::cout << "Syntax analysis: " << ast.top.size() << " top-level AST nodes\n";
-        std::cout << "Code generation: " << bytecode.size() << " bytes\n";
-        std::cout << "\nCompilation completed successfully!\n";
+        if (!flags.quiet) {
+            Logger::out() << "\n=== Compilation Summary ===\n";
+            Logger::out() << "Lexical analysis: " << tokens.size() << " tokens\n";
+            Logger::out() << "Syntax analysis: " << ast.top.size() << " top-level AST nodes\n";
+            Logger::out() << "Code generation: " << bytecode.size() << " bytes\n";
+            Logger::out() << "\nCompilation completed successfully!\n";
+        }
 
         return 0;
 
     } catch (const std::exception& e) {
-        std::cerr << "\n❌ ERROR: " << e.what() << "\n";
+        Logger::error() << "\n❌ ERROR: " << e.what() << "\n";
         return 1;
     } catch (...) {
-        std::cerr << "\n❌ UNKNOWN ERROR occurred\n";
+        Logger::error() << "\n❌ UNKNOWN ERROR occurred\n";
         return 1;
     }
 }

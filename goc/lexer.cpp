@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "logger.h"
 
 // Constructor
 Lexer::Lexer(const std::string& input, const std::string& file)
@@ -250,13 +251,13 @@ bool Lexer::hasErrors() const {
 
 // Print all tokens
 void Lexer::printTokens(bool show_tokens) const {
-    std::cout << "Lexical analysis of file: " << (filename.empty() ? "input" : filename) << "\n";
-    std::cout << "Found " << tokens.size() << " tokens:\n";
-    std::cout << "=========================================\n";
+    Logger::out() << "Lexical analysis of file: " << (filename.empty() ? "input" : filename) << "\n";
+    Logger::out() << "Found " << tokens.size() << " tokens:\n";
+    Logger::out() << "=========================================\n";
 
     if (show_tokens) {
         for (const auto& token : tokens) {
-            std::cout << std::setw(20) << std::left << tokenTypeToString(token.type)
+            Logger::out() << std::setw(20) << std::left << tokenTypeToString(token.type)
                       << " '" << token.value << "'"
                       << " (line " << token.line << ", column " << token.column << ")\n";
         }
@@ -271,12 +272,12 @@ void Lexer::printStatistics() const {
         stats[token.type]++;
     }
 
-    std::cout << "\nToken statistics:\n";
-    std::cout << "===================\n";
+    Logger::out() << "\nToken statistics:\n";
+    Logger::out() << "===================\n";
 
     for (const auto& [type, count] : stats) {
         if (count > 0 && type != TokenType::END_OF_FILE) {
-            std::cout << std::setw(20) << std::left << tokenTypeToString(type)
+            Logger::out() << std::setw(20) << std::left << tokenTypeToString(type)
                       << ": " << count << "\n";
         }
     }
@@ -694,7 +695,7 @@ void Lexer::advance() {
 
 void Lexer::reportError(const std::string& message, int errorLine, int errorColumn) {
     std::string file_info = filename.empty() ? "" : " file " + filename;
-    std::cerr << "Lexer error" << file_info
+    Logger::error() << "Lexer error" << file_info
               << " (line " << errorLine
               << ", column " << errorColumn << "): " << message << std::endl;
     error_flag = true;

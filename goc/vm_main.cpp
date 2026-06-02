@@ -1,9 +1,10 @@
 #include "vm.h"
+#include "logger.h"
 #include <iostream>
 #include <string>
 
 void printVMHelp() {
-    std::cout << "Usage: vm [options] <bytecode file>\n"
+    Logger::out() << "Usage: vm [options] <bytecode file>\n"
               << "Options:\n"
               << "  -h, --help            Show this help message\n"
               << "  -d, --debug           Enable debug mode (trace execution)\n"
@@ -29,13 +30,13 @@ int main(int argc, char* argv[]) {
         std::string arg = argv[i];
 
         if (arg == "--version") {
-            std::cout << "GOC Virtual Machine version: " << version << std::endl;
-            std::cout << "Cross-platform stack-based bytecode interpreter\n";
-            std::cout << "Platform: ";
+            Logger::out() << "GOC Virtual Machine version: " << version << std::endl;
+            Logger::out() << "Cross-platform stack-based bytecode interpreter\n";
+            Logger::out() << "Platform: ";
 #ifdef _WIN32
-            std::cout << "Windows\n";
+            Logger::out() << "Windows\n";
 #else
-            std::cout << "Unix/Linux\n";
+            Logger::out() << "Unix/Linux\n";
 #endif
             return 0;
         }
@@ -52,7 +53,7 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--dump-memory") {
             dump_memory = true;
         } else if (arg[0] == '-') {
-            std::cerr << "Unknown option: " << arg << "\n";
+            Logger::error() << "Unknown option: " << arg << "\n";
             printVMHelp();
             return 1;
         } else {
@@ -66,25 +67,29 @@ int main(int argc, char* argv[]) {
     }
 
     if (bytecode_file.empty()) {
-        std::cerr << "Error: No bytecode file specified\n";
+        Logger::error() << "Error: No bytecode file specified\n";
         printVMHelp();
         return 1;
     }
 
     try {
+        Logger::setDebugEnabled(debug_mode);
+        Logger::setDebugBuffered(debug_mode);
         VirtualMachine vm;
         
         if (debug_mode) {
-            std::cout << "=== GOC Virtual Machine ===\n";
-            std::cout << "Loading bytecode: " << bytecode_file << "\n\n";
+            Logger::debug() << "=== GOC Virtual Machine ===\n";
+            Logger::debug() << "Loading bytecode: " << bytecode_file << "\n\n";
         }
 
         if (!vm.loadFromFile(bytecode_file)) {
-            std::cerr << "Error: " << vm.getError() << "\n";
+            Logger::flushDebug();
+            Logger::error() << "Error: " << vm.getError() << "\n";
             return 1;
         }
 
         if (disassemble_only) {
+            Logger::flushDebug();
             vm.disassemble();
             return 0;
         }
@@ -92,18 +97,21 @@ int main(int argc, char* argv[]) {
         vm.setDebugMode(debug_mode);
 
         if (debug_mode) {
-            std::cout << "[Starting execution]\n\n";
+            Logger::debug() << "[Starting execution]\n\n";
         }
 
         vm.run();
 
         if (vm.hasError()) {
-            std::cerr << "\nExecution failed: " << vm.getError() << "\n";
+            Logger::flushDebug();
+            Logger::error() << "\nExecution failed: " << vm.getError() << "\n";
             return 1;
         }
 
         if (debug_mode) {
-            std::cout << "\n[Execution completed]\n";
+            Logger::debug() << "\n[Execution completed]\n";
+            Logger::out() << "\n";
+            Logger::flushDebug();
         }
 
         if (dump_stack) {
@@ -121,10 +129,12 @@ int main(int argc, char* argv[]) {
         return 0;
 
     } catch (const std::exception& e) {
-        std::cerr << "\n❌ Fatal error: " << e.what() << "\n";
+        Logger::flushDebug();
+        Logger::error() << "\n❌ Fatal error: " << e.what() << "\n";
         return 1;
     } catch (...) {
-        std::cerr << "\n❌ Unknown error occurred\n";
+        Logger::flushDebug();
+        Logger::error() << "\n❌ Unknown error occurred\n";
         return 1;
     }
 }

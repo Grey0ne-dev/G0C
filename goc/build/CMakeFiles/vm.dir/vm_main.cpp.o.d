@@ -197,4 +197,6 @@ CMakeFiles/vm.dir/vm_main.cpp.o: \
  /usr/include/bits/termios-c_oflag.h /usr/include/bits/termios-c_cflag.h \
  /usr/include/bits/termios-cbaud.h /usr/include/bits/termios-c_lflag.h \
  /usr/include/bits/termios-tcflow.h /usr/include/bits/termios-misc.h \
- /usr/include/bits/termios-baud.h /usr/include/sys/ttydefaults.h
+ /usr/include/bits/termios-baud.h /usr/include/sys/ttydefaults.h \
+ /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
+ /usr/include/c++/16.1.1/sstream /usr/include/c++/16.1.1/bits/sstream.tcc
