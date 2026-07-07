@@ -1,9 +1,6 @@
-CMakeFiles/goc.dir/codegen.cpp.o: \
- /home/grey0/Projects/PetProjects/G0C/goc/codegen.cpp \
- /usr/include/stdc-predef.h \
- /home/grey0/Projects/PetProjects/G0C/goc/codegen.h \
- /home/grey0/Projects/PetProjects/G0C/goc/parser.h \
- /home/grey0/Projects/PetProjects/G0C/goc/lexer.h \
+CMakeFiles/goc.dir/codegen.cpp.o: /home/grey/Projects/G0C/goc/codegen.cpp \
+ /usr/include/stdc-predef.h /home/grey/Projects/G0C/goc/codegen.h \
+ /home/grey/Projects/G0C/goc/parser.h /home/grey/Projects/G0C/goc/lexer.h \
  /usr/include/c++/16.1.1/iostream \
  /usr/include/c++/16.1.1/bits/requires_hosted.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++config.h \
@@ -200,8 +197,7 @@ CMakeFiles/goc.dir/codegen.cpp.o: \
  /usr/include/c++/16.1.1/cstdint \
  /usr/lib/gcc/x86_64-pc-linux-gnu/16.1.1/include/stdint.h \
  /usr/include/stdint.h /usr/include/bits/stdint-uintn.h \
- /usr/include/bits/stdint-least.h \
- /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
+ /usr/include/bits/stdint-least.h /home/grey/Projects/G0C/goc/logger.h \
  /usr/include/c++/16.1.1/cstring /usr/include/string.h \
  /usr/include/strings.h /usr/include/c++/16.1.1/algorithm \
  /usr/include/c++/16.1.1/bits/stl_algo.h \

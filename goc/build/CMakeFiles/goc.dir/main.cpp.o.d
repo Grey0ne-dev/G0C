@@ -1,7 +1,5 @@
-CMakeFiles/goc.dir/main.cpp.o: \
- /home/grey0/Projects/PetProjects/G0C/goc/main.cpp \
- /usr/include/stdc-predef.h \
- /home/grey0/Projects/PetProjects/G0C/goc/lexer.h \
+CMakeFiles/goc.dir/main.cpp.o: /home/grey/Projects/G0C/goc/main.cpp \
+ /usr/include/stdc-predef.h /home/grey/Projects/G0C/goc/lexer.h \
  /usr/include/c++/16.1.1/iostream \
  /usr/include/c++/16.1.1/bits/requires_hosted.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++config.h \
@@ -178,8 +176,7 @@ CMakeFiles/goc.dir/main.cpp.o: \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/basic_file.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++io.h \
  /usr/include/c++/16.1.1/bits/fstream.tcc \
- /home/grey0/Projects/PetProjects/G0C/goc/parser.h \
- /usr/include/c++/16.1.1/memory \
+ /home/grey/Projects/G0C/goc/parser.h /usr/include/c++/16.1.1/memory \
  /usr/include/c++/16.1.1/bits/stl_tempbuf.h \
  /usr/include/c++/16.1.1/bits/stl_raw_storage_iter.h \
  /usr/include/c++/16.1.1/bits/align.h \
@@ -195,11 +192,10 @@ CMakeFiles/goc.dir/main.cpp.o: \
  /usr/include/c++/16.1.1/backward/auto_ptr.h \
  /usr/include/c++/16.1.1/pstl/glue_memory_defs.h \
  /usr/include/c++/16.1.1/pstl/execution_defs.h \
- /home/grey0/Projects/PetProjects/G0C/goc/codegen.h \
+ /home/grey/Projects/G0C/goc/codegen.h \
  /usr/include/c++/16.1.1/unordered_set \
  /usr/include/c++/16.1.1/bits/unordered_set.h \
  /usr/include/c++/16.1.1/cstdint \
  /usr/lib/gcc/x86_64-pc-linux-gnu/16.1.1/include/stdint.h \
  /usr/include/stdint.h /usr/include/bits/stdint-uintn.h \
- /usr/include/bits/stdint-least.h \
- /home/grey0/Projects/PetProjects/G0C/goc/logger.h
+ /usr/include/bits/stdint-least.h /home/grey/Projects/G0C/goc/logger.h

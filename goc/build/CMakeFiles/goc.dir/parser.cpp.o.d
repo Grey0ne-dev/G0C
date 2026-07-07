@@ -1,9 +1,6 @@
-CMakeFiles/goc.dir/parser.cpp.o: \
- /home/grey0/Projects/PetProjects/G0C/goc/parser.cpp \
- /usr/include/stdc-predef.h \
- /home/grey0/Projects/PetProjects/G0C/goc/parser.h \
- /home/grey0/Projects/PetProjects/G0C/goc/lexer.h \
- /usr/include/c++/16.1.1/iostream \
+CMakeFiles/goc.dir/parser.cpp.o: /home/grey/Projects/G0C/goc/parser.cpp \
+ /usr/include/stdc-predef.h /home/grey/Projects/G0C/goc/parser.h \
+ /home/grey/Projects/G0C/goc/lexer.h /usr/include/c++/16.1.1/iostream \
  /usr/include/c++/16.1.1/bits/requires_hosted.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++config.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/os_defines.h \
@@ -194,8 +191,7 @@ CMakeFiles/goc.dir/parser.cpp.o: \
  /usr/include/c++/16.1.1/backward/auto_ptr.h \
  /usr/include/c++/16.1.1/pstl/glue_memory_defs.h \
  /usr/include/c++/16.1.1/pstl/execution_defs.h \
- /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
- /usr/include/c++/16.1.1/algorithm \
+ /home/grey/Projects/G0C/goc/logger.h /usr/include/c++/16.1.1/algorithm \
  /usr/include/c++/16.1.1/bits/stl_algo.h \
  /usr/include/c++/16.1.1/bits/algorithmfwd.h \
  /usr/include/c++/16.1.1/bits/stl_heap.h \

@@ -1,7 +1,5 @@
-CMakeFiles/vm.dir/logger.cpp.o: \
- /home/grey0/Projects/PetProjects/G0C/goc/logger.cpp \
- /usr/include/stdc-predef.h \
- /home/grey0/Projects/PetProjects/G0C/goc/logger.h \
+CMakeFiles/vm.dir/logger.cpp.o: /home/grey/Projects/G0C/goc/logger.cpp \
+ /usr/include/stdc-predef.h /home/grey/Projects/G0C/goc/logger.h \
  /usr/include/c++/16.1.1/ostream \
  /usr/include/c++/16.1.1/bits/requires_hosted.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++config.h \

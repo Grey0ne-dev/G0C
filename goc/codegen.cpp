@@ -509,12 +509,25 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
             // If left is another << chain, process it first so earlier parts are printed
             if (binop->left->kind == ASTNodeKind::BINARY_OP) {
                 genBinaryOp(static_cast<const BinaryOp*>(binop->left.get()));
+                emit(Opcode::POP); // discard the previous chain placeholder
             }
             // For chained prints, print right side then return
             if (binop->right->kind == ASTNodeKind::LITERAL) {
                 auto lit = static_cast<const Literal*>(binop->right.get());
                 if (lit->litType == TokenType::STRING) {
                     int str_id = addString(lit->value);
+                    emit(Opcode::PUSH_STR);
+                    emitInt32(str_id);
+                    emit(Opcode::PRINT_STR);
+                } else {
+                    genExpression(binop->right.get());
+                    if (isFloatExpr(binop->right.get())) emit(Opcode::FPRINT);
+                    else emit(Opcode::PRINT);
+                }
+            } else if (binop->right->kind == ASTNodeKind::IDENTIFIER) {
+                auto id = static_cast<const Identifier*>(binop->right.get());
+                if (id->name == "std::endl" || id->name == "endl") {
+                    int str_id = addString("\n");
                     emit(Opcode::PUSH_STR);
                     emitInt32(str_id);
                     emit(Opcode::PRINT_STR);
@@ -899,8 +912,14 @@ void CodeGenerator::genCall(const CallExpr* call) {
         if (id->name == "print") {
             for (const auto& arg : call->args) {
                 genExpression(arg.get());
-                if (isFloatExpr(arg.get())) emit(Opcode::FPRINT);
-                else emit(Opcode::PRINT);
+                if (arg->kind == ASTNodeKind::LITERAL &&
+                    static_cast<const Literal*>(arg.get())->litType == TokenType::STRING) {
+                    emit(Opcode::PRINT_STR);
+                } else if (isFloatExpr(arg.get())) {
+                    emit(Opcode::FPRINT);
+                } else {
+                    emit(Opcode::PRINT);
+                }
             }
             emit(Opcode::PUSH);
             emitInt32(0);

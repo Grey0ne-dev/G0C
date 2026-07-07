@@ -8,9 +8,9 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/grey0/Projects/PetProjects/G0C/goc/logger.cpp" "CMakeFiles/vm.dir/logger.cpp.o" "gcc" "CMakeFiles/vm.dir/logger.cpp.o.d"
-  "/home/grey0/Projects/PetProjects/G0C/goc/vm.cpp" "CMakeFiles/vm.dir/vm.cpp.o" "gcc" "CMakeFiles/vm.dir/vm.cpp.o.d"
-  "/home/grey0/Projects/PetProjects/G0C/goc/vm_main.cpp" "CMakeFiles/vm.dir/vm_main.cpp.o" "gcc" "CMakeFiles/vm.dir/vm_main.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/logger.cpp" "CMakeFiles/vm.dir/logger.cpp.o" "gcc" "CMakeFiles/vm.dir/logger.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/vm.cpp" "CMakeFiles/vm.dir/vm.cpp.o" "gcc" "CMakeFiles/vm.dir/vm.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/vm_main.cpp" "CMakeFiles/vm.dir/vm_main.cpp.o" "gcc" "CMakeFiles/vm.dir/vm_main.cpp.o.d"
   "" "vm" "gcc" "CMakeFiles/vm.dir/link.d"
   )
 

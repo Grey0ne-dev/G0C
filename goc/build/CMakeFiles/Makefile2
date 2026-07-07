@@ -54,10 +54,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/grey0/Projects/PetProjects/G0C/goc
+CMAKE_SOURCE_DIR = /home/grey/Projects/G0C/goc
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/grey0/Projects/PetProjects/G0C/goc/build
+CMAKE_BINARY_DIR = /home/grey/Projects/G0C/goc/build
 
 #=============================================================================
 # Directory level rules for the build root directory
@@ -88,14 +88,14 @@ clean: CMakeFiles/vm.dir/clean
 CMakeFiles/goc.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/goc.dir/build.make CMakeFiles/goc.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/goc.dir/build.make CMakeFiles/goc.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Built target goc"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Built target goc"
 .PHONY : CMakeFiles/goc.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/goc.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles 6
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey/Projects/G0C/goc/build/CMakeFiles 6
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/goc.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey/Projects/G0C/goc/build/CMakeFiles 0
 .PHONY : CMakeFiles/goc.dir/rule
 
 # Convenience name for target.
@@ -105,7 +105,7 @@ goc: CMakeFiles/goc.dir/rule
 # codegen rule for target.
 CMakeFiles/goc.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/goc.dir/build.make CMakeFiles/goc.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Finished codegen for target goc"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Finished codegen for target goc"
 .PHONY : CMakeFiles/goc.dir/codegen
 
 # clean rule for target.
@@ -120,14 +120,14 @@ CMakeFiles/goc.dir/clean:
 CMakeFiles/vm.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/vm.dir/build.make CMakeFiles/vm.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/vm.dir/build.make CMakeFiles/vm.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=7,8,9,10 "Built target vm"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=7,8,9,10 "Built target vm"
 .PHONY : CMakeFiles/vm.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/vm.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey/Projects/G0C/goc/build/CMakeFiles 4
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/vm.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/grey/Projects/G0C/goc/build/CMakeFiles 0
 .PHONY : CMakeFiles/vm.dir/rule
 
 # Convenience name for target.
@@ -137,7 +137,7 @@ vm: CMakeFiles/vm.dir/rule
 # codegen rule for target.
 CMakeFiles/vm.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/vm.dir/build.make CMakeFiles/vm.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=7,8,9,10 "Finished codegen for target vm"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=7,8,9,10 "Finished codegen for target vm"
 .PHONY : CMakeFiles/vm.dir/codegen
 
 # clean rule for target.

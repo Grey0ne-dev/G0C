@@ -32,7 +32,7 @@ struct CompilerFlags {
     bool dump_bytecode = false;
     std::string input_file;
     std::string output_file;
-    std::string stage = "codegen";
+    std::string stage;
     float version = 4.2;
 };
 
@@ -69,6 +69,11 @@ bool parse_command_line(int argc, char** argv, CompilerFlags& flags) {
         } else if (arg == "--stage") {
             if (i + 1 < argc) {
                 flags.stage = argv[++i];
+                if (flags.stage != "lex" && flags.stage != "parse" && flags.stage != "codegen") {
+                    Logger::error() << "Error: invalid stage '" << flags.stage
+                                    << "'. Expected: lex | parse | codegen\n";
+                    exit(1);
+                }
             } else {
                 Logger::error() << "Error: missing argument after --stage\n";
                 exit(1);
@@ -223,18 +228,16 @@ int main(int argc, char* argv[]) {
         }
 
         // Save bytecode to file
-        if (!flags.output_file.empty()) {
-            saveBytecodeToFile(codegen, flags.output_file, flags.verbose);
-        } else if (flags.stage == "codegen") {
+        if (flags.output_file.empty()) {
             std::string default_output = flags.input_file;
             size_t dot_pos = default_output.find_last_of('.');
             if (dot_pos != std::string::npos) {
                 default_output = default_output.substr(0, dot_pos);
             }
             default_output += ".bin";
-            
-            saveBytecodeToFile(codegen, default_output, flags.verbose);
+            flags.output_file = default_output;
         }
+        saveBytecodeToFile(codegen, flags.output_file, flags.verbose);
 
         if (flags.stage == "codegen") {
             if (!flags.quiet) {

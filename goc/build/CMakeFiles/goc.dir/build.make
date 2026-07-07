@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/grey0/Projects/PetProjects/G0C/goc
+CMAKE_SOURCE_DIR = /home/grey/Projects/G0C/goc
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/grey0/Projects/PetProjects/G0C/goc/build
+CMAKE_BINARY_DIR = /home/grey/Projects/G0C/goc/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/goc.dir/depend.make
@@ -73,74 +73,74 @@ CMakeFiles/goc.dir/codegen:
 .PHONY : CMakeFiles/goc.dir/codegen
 
 CMakeFiles/goc.dir/main.cpp.o: CMakeFiles/goc.dir/flags.make
-CMakeFiles/goc.dir/main.cpp.o: /home/grey0/Projects/PetProjects/G0C/goc/main.cpp
+CMakeFiles/goc.dir/main.cpp.o: /home/grey/Projects/G0C/goc/main.cpp
 CMakeFiles/goc.dir/main.cpp.o: CMakeFiles/goc.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/goc.dir/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/main.cpp.o -MF CMakeFiles/goc.dir/main.cpp.o.d -o CMakeFiles/goc.dir/main.cpp.o -c /home/grey0/Projects/PetProjects/G0C/goc/main.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/goc.dir/main.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/main.cpp.o -MF CMakeFiles/goc.dir/main.cpp.o.d -o CMakeFiles/goc.dir/main.cpp.o -c /home/grey/Projects/G0C/goc/main.cpp
 
 CMakeFiles/goc.dir/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/goc.dir/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey0/Projects/PetProjects/G0C/goc/main.cpp > CMakeFiles/goc.dir/main.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey/Projects/G0C/goc/main.cpp > CMakeFiles/goc.dir/main.cpp.i
 
 CMakeFiles/goc.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/goc.dir/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey0/Projects/PetProjects/G0C/goc/main.cpp -o CMakeFiles/goc.dir/main.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey/Projects/G0C/goc/main.cpp -o CMakeFiles/goc.dir/main.cpp.s
 
 CMakeFiles/goc.dir/logger.cpp.o: CMakeFiles/goc.dir/flags.make
-CMakeFiles/goc.dir/logger.cpp.o: /home/grey0/Projects/PetProjects/G0C/goc/logger.cpp
+CMakeFiles/goc.dir/logger.cpp.o: /home/grey/Projects/G0C/goc/logger.cpp
 CMakeFiles/goc.dir/logger.cpp.o: CMakeFiles/goc.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/goc.dir/logger.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/logger.cpp.o -MF CMakeFiles/goc.dir/logger.cpp.o.d -o CMakeFiles/goc.dir/logger.cpp.o -c /home/grey0/Projects/PetProjects/G0C/goc/logger.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/goc.dir/logger.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/logger.cpp.o -MF CMakeFiles/goc.dir/logger.cpp.o.d -o CMakeFiles/goc.dir/logger.cpp.o -c /home/grey/Projects/G0C/goc/logger.cpp
 
 CMakeFiles/goc.dir/logger.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/goc.dir/logger.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey0/Projects/PetProjects/G0C/goc/logger.cpp > CMakeFiles/goc.dir/logger.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey/Projects/G0C/goc/logger.cpp > CMakeFiles/goc.dir/logger.cpp.i
 
 CMakeFiles/goc.dir/logger.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/goc.dir/logger.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey0/Projects/PetProjects/G0C/goc/logger.cpp -o CMakeFiles/goc.dir/logger.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey/Projects/G0C/goc/logger.cpp -o CMakeFiles/goc.dir/logger.cpp.s
 
 CMakeFiles/goc.dir/lexer.cpp.o: CMakeFiles/goc.dir/flags.make
-CMakeFiles/goc.dir/lexer.cpp.o: /home/grey0/Projects/PetProjects/G0C/goc/lexer.cpp
+CMakeFiles/goc.dir/lexer.cpp.o: /home/grey/Projects/G0C/goc/lexer.cpp
 CMakeFiles/goc.dir/lexer.cpp.o: CMakeFiles/goc.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/goc.dir/lexer.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/lexer.cpp.o -MF CMakeFiles/goc.dir/lexer.cpp.o.d -o CMakeFiles/goc.dir/lexer.cpp.o -c /home/grey0/Projects/PetProjects/G0C/goc/lexer.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/goc.dir/lexer.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/lexer.cpp.o -MF CMakeFiles/goc.dir/lexer.cpp.o.d -o CMakeFiles/goc.dir/lexer.cpp.o -c /home/grey/Projects/G0C/goc/lexer.cpp
 
 CMakeFiles/goc.dir/lexer.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/goc.dir/lexer.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey0/Projects/PetProjects/G0C/goc/lexer.cpp > CMakeFiles/goc.dir/lexer.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey/Projects/G0C/goc/lexer.cpp > CMakeFiles/goc.dir/lexer.cpp.i
 
 CMakeFiles/goc.dir/lexer.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/goc.dir/lexer.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey0/Projects/PetProjects/G0C/goc/lexer.cpp -o CMakeFiles/goc.dir/lexer.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey/Projects/G0C/goc/lexer.cpp -o CMakeFiles/goc.dir/lexer.cpp.s
 
 CMakeFiles/goc.dir/parser.cpp.o: CMakeFiles/goc.dir/flags.make
-CMakeFiles/goc.dir/parser.cpp.o: /home/grey0/Projects/PetProjects/G0C/goc/parser.cpp
+CMakeFiles/goc.dir/parser.cpp.o: /home/grey/Projects/G0C/goc/parser.cpp
 CMakeFiles/goc.dir/parser.cpp.o: CMakeFiles/goc.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/goc.dir/parser.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/parser.cpp.o -MF CMakeFiles/goc.dir/parser.cpp.o.d -o CMakeFiles/goc.dir/parser.cpp.o -c /home/grey0/Projects/PetProjects/G0C/goc/parser.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/goc.dir/parser.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/parser.cpp.o -MF CMakeFiles/goc.dir/parser.cpp.o.d -o CMakeFiles/goc.dir/parser.cpp.o -c /home/grey/Projects/G0C/goc/parser.cpp
 
 CMakeFiles/goc.dir/parser.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/goc.dir/parser.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey0/Projects/PetProjects/G0C/goc/parser.cpp > CMakeFiles/goc.dir/parser.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey/Projects/G0C/goc/parser.cpp > CMakeFiles/goc.dir/parser.cpp.i
 
 CMakeFiles/goc.dir/parser.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/goc.dir/parser.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey0/Projects/PetProjects/G0C/goc/parser.cpp -o CMakeFiles/goc.dir/parser.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey/Projects/G0C/goc/parser.cpp -o CMakeFiles/goc.dir/parser.cpp.s
 
 CMakeFiles/goc.dir/codegen.cpp.o: CMakeFiles/goc.dir/flags.make
-CMakeFiles/goc.dir/codegen.cpp.o: /home/grey0/Projects/PetProjects/G0C/goc/codegen.cpp
+CMakeFiles/goc.dir/codegen.cpp.o: /home/grey/Projects/G0C/goc/codegen.cpp
 CMakeFiles/goc.dir/codegen.cpp.o: CMakeFiles/goc.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/goc.dir/codegen.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/codegen.cpp.o -MF CMakeFiles/goc.dir/codegen.cpp.o.d -o CMakeFiles/goc.dir/codegen.cpp.o -c /home/grey0/Projects/PetProjects/G0C/goc/codegen.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/goc.dir/codegen.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/goc.dir/codegen.cpp.o -MF CMakeFiles/goc.dir/codegen.cpp.o.d -o CMakeFiles/goc.dir/codegen.cpp.o -c /home/grey/Projects/G0C/goc/codegen.cpp
 
 CMakeFiles/goc.dir/codegen.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/goc.dir/codegen.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey0/Projects/PetProjects/G0C/goc/codegen.cpp > CMakeFiles/goc.dir/codegen.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/grey/Projects/G0C/goc/codegen.cpp > CMakeFiles/goc.dir/codegen.cpp.i
 
 CMakeFiles/goc.dir/codegen.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/goc.dir/codegen.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey0/Projects/PetProjects/G0C/goc/codegen.cpp -o CMakeFiles/goc.dir/codegen.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/grey/Projects/G0C/goc/codegen.cpp -o CMakeFiles/goc.dir/codegen.cpp.s
 
 # Object files for target goc
 goc_OBJECTS = \
@@ -161,7 +161,7 @@ goc: CMakeFiles/goc.dir/codegen.cpp.o
 goc: CMakeFiles/goc.dir/build.make
 goc: CMakeFiles/goc.dir/compiler_depend.ts
 goc: CMakeFiles/goc.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable goc"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/grey/Projects/G0C/goc/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable goc"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/goc.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -173,6 +173,6 @@ CMakeFiles/goc.dir/clean:
 .PHONY : CMakeFiles/goc.dir/clean
 
 CMakeFiles/goc.dir/depend:
-	cd /home/grey0/Projects/PetProjects/G0C/goc/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/grey0/Projects/PetProjects/G0C/goc /home/grey0/Projects/PetProjects/G0C/goc /home/grey0/Projects/PetProjects/G0C/goc/build /home/grey0/Projects/PetProjects/G0C/goc/build /home/grey0/Projects/PetProjects/G0C/goc/build/CMakeFiles/goc.dir/DependInfo.cmake "--color=$(COLOR)" goc
+	cd /home/grey/Projects/G0C/goc/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/grey/Projects/G0C/goc /home/grey/Projects/G0C/goc /home/grey/Projects/G0C/goc/build /home/grey/Projects/G0C/goc/build /home/grey/Projects/G0C/goc/build/CMakeFiles/goc.dir/DependInfo.cmake "--color=$(COLOR)" goc
 .PHONY : CMakeFiles/goc.dir/depend
 

@@ -1,7 +1,7 @@
 {
 	"InstallScripts" : 
 	[
-		"/home/grey0/Projects/PetProjects/G0C/goc/build/cmake_install.cmake"
+		"/home/grey/Projects/G0C/goc/build/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

@@ -8,11 +8,11 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/grey0/Projects/PetProjects/G0C/goc/codegen.cpp" "CMakeFiles/goc.dir/codegen.cpp.o" "gcc" "CMakeFiles/goc.dir/codegen.cpp.o.d"
-  "/home/grey0/Projects/PetProjects/G0C/goc/lexer.cpp" "CMakeFiles/goc.dir/lexer.cpp.o" "gcc" "CMakeFiles/goc.dir/lexer.cpp.o.d"
-  "/home/grey0/Projects/PetProjects/G0C/goc/logger.cpp" "CMakeFiles/goc.dir/logger.cpp.o" "gcc" "CMakeFiles/goc.dir/logger.cpp.o.d"
-  "/home/grey0/Projects/PetProjects/G0C/goc/main.cpp" "CMakeFiles/goc.dir/main.cpp.o" "gcc" "CMakeFiles/goc.dir/main.cpp.o.d"
-  "/home/grey0/Projects/PetProjects/G0C/goc/parser.cpp" "CMakeFiles/goc.dir/parser.cpp.o" "gcc" "CMakeFiles/goc.dir/parser.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/codegen.cpp" "CMakeFiles/goc.dir/codegen.cpp.o" "gcc" "CMakeFiles/goc.dir/codegen.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/lexer.cpp" "CMakeFiles/goc.dir/lexer.cpp.o" "gcc" "CMakeFiles/goc.dir/lexer.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/logger.cpp" "CMakeFiles/goc.dir/logger.cpp.o" "gcc" "CMakeFiles/goc.dir/logger.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/main.cpp" "CMakeFiles/goc.dir/main.cpp.o" "gcc" "CMakeFiles/goc.dir/main.cpp.o.d"
+  "/home/grey/Projects/G0C/goc/parser.cpp" "CMakeFiles/goc.dir/parser.cpp.o" "gcc" "CMakeFiles/goc.dir/parser.cpp.o.d"
   "" "goc" "gcc" "CMakeFiles/goc.dir/link.d"
   )
 

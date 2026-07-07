@@ -1,7 +1,5 @@
-CMakeFiles/goc.dir/lexer.cpp.o: \
- /home/grey0/Projects/PetProjects/G0C/goc/lexer.cpp \
- /usr/include/stdc-predef.h \
- /home/grey0/Projects/PetProjects/G0C/goc/lexer.h \
+CMakeFiles/goc.dir/lexer.cpp.o: /home/grey/Projects/G0C/goc/lexer.cpp \
+ /usr/include/stdc-predef.h /home/grey/Projects/G0C/goc/lexer.h \
  /usr/include/c++/16.1.1/iostream \
  /usr/include/c++/16.1.1/bits/requires_hosted.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++config.h \
@@ -178,4 +176,4 @@ CMakeFiles/goc.dir/lexer.cpp.o: \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/basic_file.h \
  /usr/include/c++/16.1.1/x86_64-pc-linux-gnu/bits/c++io.h \
  /usr/include/c++/16.1.1/bits/fstream.tcc \
- /home/grey0/Projects/PetProjects/G0C/goc/logger.h
+ /home/grey/Projects/G0C/goc/logger.h
