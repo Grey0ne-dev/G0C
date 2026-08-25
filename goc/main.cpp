@@ -33,7 +33,7 @@ struct CompilerFlags {
     std::string input_file;
     std::string output_file;
     std::string stage;
-    float version = 4.2;
+    float version = 4.2f;
 };
 
 bool parse_command_line(int argc, char** argv, CompilerFlags& flags) {

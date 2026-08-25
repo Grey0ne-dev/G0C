@@ -1,0 +1,17 @@
+# CMake build trees and generated files
+build/
+goc/build/
+goc/CMakeFiles/
+goc/CMakeCache.txt
+goc/cmake_install.cmake
+goc/Makefile
+
+# Compiled artifacts
+*.o
+*.bin
+goc/goc
+goc/vm
+
+# Editor and platform files
+.DS_Store
+*.swp

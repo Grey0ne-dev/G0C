@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <cstring>
 #include <algorithm>
+#include <stdexcept>
 CodeGenerator::CodeGenerator() 
     : current_offset(0), next_memory_addr(0), label_counter(0) {
 }
@@ -13,10 +14,18 @@ std::vector<uint8_t> CodeGenerator::generate(const Program& program) {
     bytecode.clear();
     symbols.clear();
     functions.clear();
+    labels.clear();
+    class_names.clear();
+    string_table.clear();
+    scope_changes.clear();
+    struct_layouts.clear();
+    struct_aliases.clear();
+    struct_declarations.clear();
     current_offset = 0;
     next_memory_addr = 0;
     label_counter = 0;
     
+    collectStructLayouts(program);
     collectFunctionSignatures(program);
     genProgram(program);
     fixupLabels();
@@ -25,10 +34,6 @@ std::vector<uint8_t> CodeGenerator::generate(const Program& program) {
 }
 
 void CodeGenerator::genProgram(const Program& prog) {
-    // Emit entry point that calls main and halts
-    emitJump(Opcode::CALL, "main");
-    emit(Opcode::HALT);
-    
     // Collect class/struct names for constructor detection
     for (const auto& node : prog.top) {
         if (!node) continue;  // Safety check
@@ -41,25 +46,35 @@ void CodeGenerator::genProgram(const Program& prog) {
         }
     }
 
-    // Generate code for all top-level declarations and class member functions
+    // Emit global initialization before entering main. Function bodies are
+    // emitted afterward so they are not executed during startup.
     for (const auto& node : prog.top) {
-        if (!node) continue;  // Safety check
+        if (!node) continue;
+        if (node->kind != ASTNodeKind::FUNC_DECL &&
+            node->kind != ASTNodeKind::CLASS_DECL &&
+            node->kind != ASTNodeKind::STRUCT_DECL) {
+            genStatement(node.get());
+        }
+    }
+
+    emitJump(Opcode::CALL, "main");
+    emit(Opcode::HALT);
+
+    // Generate functions after the startup section.
+    for (const auto& node : prog.top) {
+        if (!node) continue;
         if (node->kind == ASTNodeKind::CLASS_DECL) {
             auto cls = static_cast<const ClassDecl*>(node.get());
-            if (!cls) continue;
-            // Emit member functions as separate functions
             for (const auto& m : cls->members) {
                 if (m && m->kind == ASTNodeKind::FUNC_DECL) {
                     auto f = static_cast<const FunctionDecl*>(m.get());
-                    if (!f) continue;
-                    // Create qualified label for method
-                    std::string qual = cls->className + "::" + f->funcName;
-                    // Emit function under qualified name by calling genFunctionDecl with override
+                    std::string qual = mangleFunctionName(
+                        cls->className + "::" + f->funcName, f->params);
                     genFunctionDecl(f, qual);
                 }
             }
-        } else {
-            genStatement(node.get());
+        } else if (node->kind == ASTNodeKind::FUNC_DECL) {
+            genFunctionDecl(static_cast<const FunctionDecl*>(node.get()));
         }
     }
 }
@@ -69,13 +84,14 @@ void CodeGenerator::collectFunctionSignatures(const Program& prog) {
         if (!node) continue;
         if (node->kind == ASTNodeKind::FUNC_DECL) {
             auto func = static_cast<const FunctionDecl*>(node.get());
-            collectFunctionSignature(func, mangleFunctionName(func->funcName, func->params.size()));
+            collectFunctionSignature(func, mangleFunctionName(func->funcName, func->params));
         } else if (node->kind == ASTNodeKind::CLASS_DECL) {
             auto cls = static_cast<const ClassDecl*>(node.get());
             for (const auto& member : cls->members) {
                 if (member && member->kind == ASTNodeKind::FUNC_DECL) {
                     auto func = static_cast<const FunctionDecl*>(member.get());
-                    collectFunctionSignature(func, cls->className + "::" + func->funcName);
+                    collectFunctionSignature(func, mangleFunctionName(
+                        cls->className + "::" + func->funcName, func->params));
                 }
             }
         }
@@ -90,6 +106,130 @@ void CodeGenerator::collectFunctionSignature(const FunctionDecl* func, const std
         sig.params_float.push_back(isFloatType(param.first));
     }
     functions[nameOverride] = sig;
+}
+
+void CodeGenerator::collectStructLayouts(const Program& prog) {
+    for (const auto& node : prog.top) {
+        if (!node || node->kind != ASTNodeKind::STRUCT_DECL) continue;
+        auto decl = static_cast<const StructDecl*>(node.get());
+        const std::string canonical = decl->structName.empty() ? decl->aliasName : decl->structName;
+        if (canonical.empty()) {
+            throw std::runtime_error("Anonymous struct requires a typedef name");
+        }
+        struct_aliases[canonical] = canonical;
+        if (!decl->aliasName.empty()) {
+            auto existing = struct_aliases.find(decl->aliasName);
+            if (existing != struct_aliases.end() && existing->second != canonical) {
+                throw std::runtime_error("Conflicting typedef name: " + decl->aliasName);
+            }
+            struct_aliases[decl->aliasName] = canonical;
+        }
+        if (decl->isForwardDeclaration) continue;
+        if (struct_declarations.find(canonical) != struct_declarations.end()) {
+            throw std::runtime_error("Duplicate struct definition: " + canonical);
+        }
+        struct_declarations[canonical] = decl;
+    }
+
+    std::unordered_set<std::string> visiting;
+    for (const auto& [name, decl] : struct_declarations) {
+        (void)decl;
+        buildStructLayout(name, visiting);
+    }
+}
+
+const CodeGenerator::StructLayout& CodeGenerator::buildStructLayout(
+    const std::string& name, std::unordered_set<std::string>& visiting) {
+    auto ready = struct_layouts.find(name);
+    if (ready != struct_layouts.end()) return ready->second;
+    auto declaration = struct_declarations.find(name);
+    if (declaration == struct_declarations.end()) {
+        throw std::runtime_error("Unknown struct type: " + name);
+    }
+    if (!visiting.insert(name).second) {
+        throw std::runtime_error("Struct '" + name + "' contains itself by value");
+    }
+
+    StructLayout layout;
+    layout.name = name;
+    std::unordered_set<std::string> field_names;
+
+    auto add_member = [&](const ASTNode* member, auto&& add_member_ref) -> void {
+        if (!member) return;
+        if (member->kind == ASTNodeKind::BLOCK) {
+            auto block = static_cast<const BlockStmt*>(member);
+            for (const auto& child : block->statements) add_member_ref(child.get(), add_member_ref);
+            return;
+        }
+        if (member->kind == ASTNodeKind::ACCESS_SPEC) return;
+        if (member->kind != ASTNodeKind::VAR_DECL) {
+            throw std::runtime_error("Struct '" + name + "' may only contain data fields");
+        }
+
+        auto field_decl = static_cast<const VarDecl*>(member);
+        if (field_decl->init) {
+            throw std::runtime_error("Struct field initializers are not supported");
+        }
+        if (!field_names.insert(field_decl->varName).second) {
+            throw std::runtime_error("Duplicate field '" + field_decl->varName +
+                                     "' in struct '" + name + "'");
+        }
+
+        StructField field;
+        field.name = field_decl->varName;
+        field.offset = layout.size;
+        field.is_pointer = field_decl->isPointer;
+        field.is_array = field_decl->isArray;
+        field.struct_type = resolveStructType(field_decl->typeTokens);
+        field.is_float = field.struct_type.empty() && !field.is_pointer &&
+                         isFloatType(field_decl->typeTokens);
+
+        const int element_count = field.is_array ? field_decl->arraySize : 1;
+        if (!field.struct_type.empty() && !field.is_pointer) {
+            const auto& nested = buildStructLayout(field.struct_type, visiting);
+            field.size = nested.size * element_count;
+        } else {
+            field.size = element_count;
+        }
+        layout.size += field.size;
+        layout.fields.push_back(std::move(field));
+    };
+
+    for (const auto& member : declaration->second->members) {
+        add_member(member.get(), add_member);
+    }
+    if (layout.fields.empty()) {
+        throw std::runtime_error("Struct '" + name + "' must contain at least one field");
+    }
+
+    visiting.erase(name);
+    return struct_layouts.emplace(name, std::move(layout)).first->second;
+}
+
+std::string CodeGenerator::resolveStructType(
+    const std::vector<std::string>& typeTokens) const {
+    for (size_t i = 0; i < typeTokens.size(); ++i) {
+        if (typeTokens[i] == "struct" && i + 1 < typeTokens.size()) {
+            auto alias = struct_aliases.find(typeTokens[i + 1]);
+            if (alias != struct_aliases.end()) return alias->second;
+            return typeTokens[i + 1];
+        }
+        auto alias = struct_aliases.find(typeTokens[i]);
+        if (alias != struct_aliases.end()) return alias->second;
+    }
+    return "";
+}
+
+const CodeGenerator::StructField& CodeGenerator::getStructField(
+    const std::string& structType, const std::string& fieldName) const {
+    auto layout = struct_layouts.find(structType);
+    if (layout == struct_layouts.end()) {
+        throw std::runtime_error("Unknown struct type: " + structType);
+    }
+    for (const auto& field : layout->second.fields) {
+        if (field.name == fieldName) return field;
+    }
+    throw std::runtime_error("Struct '" + structType + "' has no field named '" + fieldName + "'");
 }
 
 void CodeGenerator::genStatement(const ASTNode* node) {
@@ -157,6 +297,66 @@ void CodeGenerator::genVarDecl(const VarDecl* decl) {
             break;
         }
     }
+
+    const std::string struct_type = resolveStructType(decl->typeTokens);
+    if (!struct_type.empty() && !is_pointer) {
+        if (decl->isArray) {
+            throw std::runtime_error("Arrays of structs are not supported yet");
+        }
+        auto layout_it = struct_layouts.find(struct_type);
+        if (layout_it == struct_layouts.end()) {
+            throw std::runtime_error("Unknown struct type: " + struct_type);
+        }
+        const auto& layout = layout_it->second;
+        const int addr = next_memory_addr;
+        next_memory_addr += layout.size;
+        addVariable(decl->varName, addr, false, false, false,
+                    struct_type, true, false);
+
+        if (!decl->init) return;
+        if (decl->init->kind == ASTNodeKind::IDENTIFIER) {
+            auto source_id = static_cast<const Identifier*>(decl->init.get());
+            auto source = findSymbol(source_id->name);
+            if (!source || !source->is_struct_value || source->struct_type != struct_type ||
+                source->type != Symbol::VARIABLE) {
+                throw std::runtime_error("Struct initializer must have type '" + struct_type + "'");
+            }
+            for (int i = 0; i < layout.size; ++i) {
+                emit(Opcode::LOAD);
+                emitInt32(source->offset + i);
+                emit(Opcode::PUSH);
+                emitInt32(addr + i);
+                emit(Opcode::STORE);
+            }
+            return;
+        }
+        if (decl->init->kind != ASTNodeKind::INITIALIZER_LIST) {
+            throw std::runtime_error("Struct '" + decl->varName +
+                                     "' requires a brace initializer or same-type value");
+        }
+        auto list = static_cast<const InitializerList*>(decl->init.get());
+        if (list->elements.size() > layout.fields.size()) {
+            throw std::runtime_error("Too many initializers for struct '" + decl->varName + "'");
+        }
+        for (size_t i = 0; i < list->elements.size(); ++i) {
+            const auto& field = layout.fields[i];
+            if (field.is_array || (!field.struct_type.empty() && !field.is_pointer)) {
+                throw std::runtime_error("Aggregate initialization of array or nested struct fields "
+                                         "is not supported yet");
+            }
+            genExpression(list->elements[i].get());
+            if (field.is_float) {
+                if (!isFloatExpr(list->elements[i].get())) emit(Opcode::INT_TO_FP);
+                emit(Opcode::FP_TO_BITS);
+            } else if (isFloatExpr(list->elements[i].get())) {
+                emit(Opcode::FP_TO_INT);
+            }
+            emit(Opcode::PUSH);
+            emitInt32(addr + field.offset);
+            emit(Opcode::STORE);
+        }
+        return;
+    }
     
     // Check if this is an array OR pointer to heap-allocated array
     // Detect "new" expressions in initializer (heap allocation)
@@ -181,10 +381,44 @@ void CodeGenerator::genVarDecl(const VarDecl* decl) {
     int allocation_size = (decl->isArray && !is_heap_array) ? decl->arraySize : 1;
     int addr = next_memory_addr;
     next_memory_addr += allocation_size;
-    addVariable(decl->varName, addr, is_array, is_heap_array, is_float_var);
+    addVariable(decl->varName, addr, is_array, is_heap_array, is_float_var,
+                struct_type, false, !struct_type.empty() && is_pointer);
     
     // If there's an initializer, evaluate it and store
     if (decl->init) {
+        if (decl->init->kind == ASTNodeKind::INITIALIZER_LIST) {
+            auto list = static_cast<const InitializerList*>(decl->init.get());
+            if (!decl->isArray) {
+                if (list->elements.size() != 1) {
+                    throw std::runtime_error("Scalar initializer for '" + decl->varName +
+                                             "' must contain exactly one value");
+                }
+                genExpression(list->elements.front().get());
+                if (is_float_var) {
+                    if (!isFloatExpr(list->elements.front().get())) emit(Opcode::INT_TO_FP);
+                    emit(Opcode::FSTORE);
+                    emitInt32(addr);
+                } else {
+                    emit(Opcode::PUSH);
+                    emitInt32(addr);
+                    emit(Opcode::STORE);
+                }
+                return;
+            }
+            if (list->elements.size() > static_cast<size_t>(allocation_size)) {
+                throw std::runtime_error("Too many initializers for array '" + decl->varName + "'");
+            }
+            for (size_t i = 0; i < list->elements.size(); ++i) {
+                if (isFloatExpr(list->elements[i].get())) {
+                    throw std::runtime_error("Float arrays are not supported by the current VM");
+                }
+                genExpression(list->elements[i].get());
+                emit(Opcode::PUSH);
+                emitInt32(addr + static_cast<int>(i));
+                emit(Opcode::STORE);
+            }
+            return;
+        }
         if (is_float_var) {
             // Float variable: generate expression, coerce if needed, FSTORE
             genExpression(decl->init.get());
@@ -203,8 +437,7 @@ void CodeGenerator::genVarDecl(const VarDecl* decl) {
 }
 
 void CodeGenerator::genFunctionDecl(const FunctionDecl* func) {
-    // Use simple name mangling for overloaded functions (param count only)
-    std::string mangled_name = mangleFunctionName(func->funcName, func->params.size());
+    std::string mangled_name = mangleFunctionName(func->funcName, func->params);
     genFunctionDecl(func, mangled_name);
 }
 
@@ -216,6 +449,7 @@ void CodeGenerator::genFunctionDecl(const FunctionDecl* func, const std::string&
     
     // Function prologue
     emit(Opcode::PUSH_BP);
+    enterScope();
     
     // Parameters are on stack below saved BP
     // After PUSH_BP, stack layout:
@@ -243,6 +477,10 @@ void CodeGenerator::genFunctionDecl(const FunctionDecl* func, const std::string&
         sym.is_array = is_pointer;  // Pointers and arrays treated same
         sym.is_heap_allocated = false;
         sym.is_float = !is_pointer && isFloatType(type_tokens);
+        sym.struct_type = resolveStructType(type_tokens);
+        sym.is_struct_pointer = !sym.struct_type.empty() && is_pointer;
+        sym.is_struct_value = !sym.struct_type.empty() && !is_pointer;
+        rememberSymbolBeforeChange(func->params[i].second);
         symbols[func->params[i].second] = sym;
         
         Logger::debug() << "DBG addParam: '" << func->params[i].second
@@ -254,6 +492,7 @@ void CodeGenerator::genFunctionDecl(const FunctionDecl* func, const std::string&
     if (func->body) {
         genStatement(func->body.get());
     }
+    exitScope();
     
     // Function epilogue (if no explicit return)
     emit(Opcode::POP_BP);
@@ -261,9 +500,11 @@ void CodeGenerator::genFunctionDecl(const FunctionDecl* func, const std::string&
 }
 
 void CodeGenerator::genBlock(const BlockStmt* block) {
+    enterScope();
     for (const auto& stmt : block->statements) {
         genStatement(stmt.get());
     }
+    exitScope();
 }
 
 void CodeGenerator::genIf(const IfStmt* ifstmt) {
@@ -271,7 +512,7 @@ void CodeGenerator::genIf(const IfStmt* ifstmt) {
     std::string end_label = makeLabel("endif");
     
     // Evaluate condition
-    genExpression(ifstmt->cond.get());
+    genCondition(ifstmt->cond.get());
     
     // Jump to else if condition is zero (false)
     emitJump(Opcode::JZ, else_label);
@@ -296,7 +537,7 @@ void CodeGenerator::genWhile(const WhileStmt* whilestmt) {
     defineLabel(loop_start);
     
     // Evaluate condition
-    genExpression(whilestmt->cond.get());
+    genCondition(whilestmt->cond.get());
     
     // Exit loop if condition is false
     emitJump(Opcode::JZ, loop_end);
@@ -323,7 +564,7 @@ void CodeGenerator::genFor(const ForStmt* forstmt) {
     
     // Condition
     if (forstmt->cond) {
-        genExpression(forstmt->cond.get());
+        genCondition(forstmt->cond.get());
         emitJump(Opcode::JZ, loop_end);
     }
     
@@ -349,6 +590,152 @@ void CodeGenerator::genReturn(const ReturnStmt* ret) {
     emit(Opcode::RET);
 }
 
+void CodeGenerator::genCondition(const ASTNode* node) {
+    if (!isFloatExpr(node)) {
+        genExpression(node);
+        return;
+    }
+
+    genExpression(node);
+    emit(Opcode::FPUSH);
+    emitFloat32(0.0f);
+    emit(Opcode::FCMP);
+    std::string true_label = makeLabel("float_truthy");
+    std::string end_label = makeLabel("float_truthy_end");
+    emitJump(Opcode::JL, true_label);
+    emitJump(Opcode::JG, true_label);
+    emit(Opcode::PUSH);
+    emitInt32(0);
+    emitJump(Opcode::JMP, end_label);
+    defineLabel(true_label);
+    emit(Opcode::PUSH);
+    emitInt32(1);
+    defineLabel(end_label);
+}
+
+void CodeGenerator::genConditional(const ConditionalExpr* conditional) {
+    const bool result_is_float = isFloatExpr(conditional->thenExpr.get()) ||
+                                 isFloatExpr(conditional->elseExpr.get());
+    std::string else_label = makeLabel("conditional_else");
+    std::string end_label = makeLabel("conditional_end");
+    genCondition(conditional->condition.get());
+    emitJump(Opcode::JZ, else_label);
+    genExpression(conditional->thenExpr.get());
+    if (result_is_float && !isFloatExpr(conditional->thenExpr.get())) emit(Opcode::INT_TO_FP);
+    emitJump(Opcode::JMP, end_label);
+    defineLabel(else_label);
+    genExpression(conditional->elseExpr.get());
+    if (result_is_float && !isFloatExpr(conditional->elseExpr.get())) emit(Opcode::INT_TO_FP);
+    defineLabel(end_label);
+}
+
+std::string CodeGenerator::structTypeOf(const ASTNode* node) const {
+    if (!node) return "";
+    if (node->kind == ASTNodeKind::IDENTIFIER) {
+        auto id = static_cast<const Identifier*>(node);
+        auto symbol = symbols.find(id->name);
+        return symbol == symbols.end() ? "" : symbol->second.struct_type;
+    }
+    if (node->kind == ASTNodeKind::MEMBER_ACCESS) {
+        auto member = static_cast<const MemberAccess*>(node);
+        const std::string owner_type = structTypeOf(member->object.get());
+        if (owner_type.empty()) return "";
+        return getStructField(owner_type, member->member).struct_type;
+    }
+    return "";
+}
+
+bool CodeGenerator::isStructPointerExpr(const ASTNode* node) const {
+    if (!node) return false;
+    if (node->kind == ASTNodeKind::IDENTIFIER) {
+        auto id = static_cast<const Identifier*>(node);
+        auto symbol = symbols.find(id->name);
+        return symbol != symbols.end() && symbol->second.is_struct_pointer;
+    }
+    if (node->kind == ASTNodeKind::MEMBER_ACCESS) {
+        auto member = static_cast<const MemberAccess*>(node);
+        const std::string owner_type = structTypeOf(member->object.get());
+        return !owner_type.empty() && getStructField(owner_type, member->member).is_pointer;
+    }
+    return false;
+}
+
+void CodeGenerator::genMemberAddress(const MemberAccess* member) {
+    const std::string owner_type = structTypeOf(member->object.get());
+    if (owner_type.empty()) {
+        throw std::runtime_error("Member access requires a struct value or pointer");
+    }
+    const bool object_is_pointer = isStructPointerExpr(member->object.get());
+    if (member->arrow != object_is_pointer) {
+        throw std::runtime_error(member->arrow
+            ? "Operator '->' requires a pointer to struct"
+            : "Operator '.' requires a struct value");
+    }
+
+    if (member->arrow) {
+        genExpression(member->object.get());
+    } else if (member->object->kind == ASTNodeKind::IDENTIFIER) {
+        auto id = static_cast<const Identifier*>(member->object.get());
+        auto symbol = findSymbol(id->name);
+        if (!symbol || !symbol->is_struct_value || symbol->type != Symbol::VARIABLE) {
+            throw std::runtime_error("Struct value is not addressable in this context");
+        }
+        emit(Opcode::PUSH);
+        emitInt32(symbol->offset);
+    } else if (member->object->kind == ASTNodeKind::MEMBER_ACCESS) {
+        auto parent = static_cast<const MemberAccess*>(member->object.get());
+        const std::string parent_owner = structTypeOf(parent->object.get());
+        const auto& parent_field = getStructField(parent_owner, parent->member);
+        if (parent_field.struct_type.empty() || parent_field.is_pointer) {
+            throw std::runtime_error("Operator '.' requires a nested struct value");
+        }
+        genMemberAddress(parent);
+    } else {
+        throw std::runtime_error("Unsupported struct member base expression");
+    }
+
+    const auto& field = getStructField(owner_type, member->member);
+    if (field.offset != 0) {
+        emit(Opcode::PUSH);
+        emitInt32(field.offset);
+        emit(Opcode::ADD);
+    }
+}
+
+void CodeGenerator::genMemberAccess(const MemberAccess* member) {
+    const std::string owner_type = structTypeOf(member->object.get());
+    const auto& field = getStructField(owner_type, member->member);
+    if (field.is_array) {
+        throw std::runtime_error("Struct array fields are not supported in expressions yet");
+    }
+    if (!field.struct_type.empty() && !field.is_pointer) {
+        throw std::runtime_error("Nested struct values must be followed by member access");
+    }
+    genMemberAddress(member);
+    emit(Opcode::LOAD_INDIRECT);
+    if (field.is_float) emit(Opcode::BITS_TO_FP);
+}
+
+void CodeGenerator::genMemberAssignment(const MemberAccess* member, const ASTNode* value) {
+    const std::string owner_type = structTypeOf(member->object.get());
+    const auto& field = getStructField(owner_type, member->member);
+    if (field.is_array || (!field.struct_type.empty() && !field.is_pointer)) {
+        throw std::runtime_error("Whole-array and whole-struct field assignment is not supported");
+    }
+
+    genExpression(value);
+    if (field.is_float) {
+        if (!isFloatExpr(value)) emit(Opcode::INT_TO_FP);
+        emit(Opcode::FDUP);
+        emit(Opcode::FP_TO_BITS);
+    } else {
+        if (isFloatExpr(value)) emit(Opcode::FP_TO_INT);
+        emit(Opcode::DUP);
+    }
+    genMemberAddress(member);
+    emit(Opcode::STORE_INDIRECT);
+}
+
 void CodeGenerator::genExpression(const ASTNode* node) {
     if (!node) return;
     
@@ -371,25 +758,54 @@ void CodeGenerator::genExpression(const ASTNode* node) {
         case ASTNodeKind::ARRAY_SUBSCRIPT:
             genArraySubscript(static_cast<const ArraySubscript*>(node));
             break;
+        case ASTNodeKind::CONDITIONAL:
+            genConditional(static_cast<const ConditionalExpr*>(node));
+            break;
+        case ASTNodeKind::INITIALIZER_LIST:
+            throw std::runtime_error("Initializer list is only valid in a declaration");
         case ASTNodeKind::MEMBER_ACCESS:
-            // For now, handle member access specially
-            // std::cout and other I/O operations
-            // Just push 0 as placeholder (no real I/O in VM yet)
-            emit(Opcode::PUSH);
-            emitInt32(0);
+            genMemberAccess(static_cast<const MemberAccess*>(node));
             break;
         default:
-            Logger::error() << "Warning: Unhandled expression type "
-                      << static_cast<int>(node->kind) << " in codegen\n";
-            emit(Opcode::PUSH);
-            emitInt32(0); // Push dummy value
-            break;
+            throw std::runtime_error("Unhandled expression type in code generation");
     }
 }
 
 void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
     // Special handling for assignment
     if (binop->op == "=") {
+        if (binop->left->kind == ASTNodeKind::IDENTIFIER) {
+            auto destination_id = static_cast<const Identifier*>(binop->left.get());
+            auto destination = findSymbol(destination_id->name);
+            if (destination && destination->is_struct_value) {
+                if (binop->right->kind != ASTNodeKind::IDENTIFIER) {
+                    throw std::runtime_error("Struct assignment requires a same-type variable");
+                }
+                auto source_id = static_cast<const Identifier*>(binop->right.get());
+                auto source = findSymbol(source_id->name);
+                if (!source || !source->is_struct_value ||
+                    source->struct_type != destination->struct_type ||
+                    source->type != Symbol::VARIABLE || destination->type != Symbol::VARIABLE) {
+                    throw std::runtime_error("Incompatible struct assignment");
+                }
+                const auto layout = struct_layouts.find(destination->struct_type);
+                for (int i = 0; i < layout->second.size; ++i) {
+                    emit(Opcode::LOAD);
+                    emitInt32(source->offset + i);
+                    emit(Opcode::PUSH);
+                    emitInt32(destination->offset + i);
+                    emit(Opcode::STORE);
+                }
+                emit(Opcode::PUSH);
+                emitInt32(destination->offset);
+                return;
+            }
+        }
+        if (binop->left->kind == ASTNodeKind::MEMBER_ACCESS) {
+            genMemberAssignment(static_cast<const MemberAccess*>(binop->left.get()),
+                                binop->right.get());
+            return;
+        }
         // Handle pointer dereference assignment: *ptr = value
         if (binop->left->kind == ASTNodeKind::UNARY_OP) {
             auto unop = static_cast<const UnaryOp*>(binop->left.get());
@@ -443,7 +859,11 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
                     // Stack: [value, value, addr]
                     // STORE_INDIRECT pops addr, pops value
                     emit(Opcode::STORE_INDIRECT);
+                } else {
+                    throw std::runtime_error("Unknown array '" + id->name + "'");
                 }
+            } else {
+                throw std::runtime_error("Unsupported array assignment target");
             }
             return;
         }
@@ -484,8 +904,30 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
                     emitInt32(sym->offset); // Stack: [value, value, addr]
                     emit(Opcode::STORE);
                 }
+            } else {
+                throw std::runtime_error("Assignment to unknown identifier '" + id->name + "'");
             }
+        } else {
+            throw std::runtime_error("Unsupported assignment target at line " +
+                                     std::to_string(binop->line));
         }
+        return;
+    }
+
+    if (binop->op == "&&" || binop->op == "||") {
+        std::string decisive_label = makeLabel(binop->op == "&&" ? "and_false" : "or_true");
+        std::string end_label = makeLabel("logical_end");
+        genCondition(binop->left.get());
+        emitJump(binop->op == "&&" ? Opcode::JZ : Opcode::JNZ, decisive_label);
+        genCondition(binop->right.get());
+        emitJump(binop->op == "&&" ? Opcode::JZ : Opcode::JNZ, decisive_label);
+        emit(Opcode::PUSH);
+        emitInt32(binop->op == "&&" ? 1 : 0);
+        emitJump(Opcode::JMP, end_label);
+        defineLabel(decisive_label);
+        emit(Opcode::PUSH);
+        emitInt32(binop->op == "&&" ? 0 : 1);
+        defineLabel(end_label);
         return;
     }
     
@@ -493,7 +935,6 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
     if (binop->op == "<<") {
         // Special-case: chained cout << a << b << endl
         // If left is identifier std::cout or a chain starting from it, handle print
-        const ASTNode* cur = binop;
         bool isCoutChain = false;
         // Walk leftmost to see if base is std::cout
         const ASTNode* leftmost = binop->left.get();
@@ -657,24 +1098,21 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
         genExpression(binop->right.get());
         if (!rightIsFloat) emit(Opcode::INT_TO_FP);
         
-        std::string true_label = makeLabel("fcmp_true");
         std::string end_label  = makeLabel("fcmp_end");
         
         if (binop->op == "==" || binop->op == "!=") {
-            // Use FSUB + FP_TO_INT + JZ
-            emit(Opcode::FSUB);
-            emit(Opcode::FP_TO_INT);
-            emit(Opcode::DUP);
-            emitJump(Opcode::JZ, true_label);
-            emit(Opcode::POP);
-            emit(Opcode::PUSH); emitInt32(binop->op == "==" ? 0 : 1);
-            emitJump(Opcode::JMP, end_label);
-            defineLabel(true_label);
-            emit(Opcode::POP);
+            emit(Opcode::FCMP);
+            std::string unequal_label = makeLabel("fcmp_unequal");
+            emitJump(Opcode::JL, unequal_label);
+            emitJump(Opcode::JG, unequal_label);
             emit(Opcode::PUSH); emitInt32(binop->op == "==" ? 1 : 0);
+            emitJump(Opcode::JMP, end_label);
+            defineLabel(unequal_label);
+            emit(Opcode::PUSH); emitInt32(binop->op == "==" ? 0 : 1);
             defineLabel(end_label);
         } else {
             // Use FCMP (sets cmp_flag) + conditional jump
+            std::string true_label = makeLabel("fcmp_true");
             emit(Opcode::FCMP);
             Opcode jmpOp = (binop->op == "<")  ? Opcode::JL  :
                            (binop->op == ">")  ? Opcode::JG  :
@@ -784,11 +1222,8 @@ void CodeGenerator::genBinaryOp(const BinaryOp* binop) {
         emitInt32(0);  // Equal -> false
         defineLabel(end_label);
     } else {
-        // Unknown operator - just evaluate operands and push 0
-        emit(Opcode::POP);
-        emit(Opcode::POP);
-        emit(Opcode::PUSH);
-        emitInt32(0);
+        throw std::runtime_error("Unsupported binary operator '" + binop->op +
+                                 "' at line " + std::to_string(binop->line));
     }
 }
 
@@ -861,11 +1296,12 @@ void CodeGenerator::genUnaryOp(const UnaryOp* unop) {
                     return;
                 }
             }
+        } else if (unop->operand->kind == ASTNodeKind::MEMBER_ACCESS) {
+            genMemberAddress(static_cast<const MemberAccess*>(unop->operand.get()));
+            return;
         }
-        // Default: push 0 for unsupported address-of
-        emit(Opcode::PUSH);
-        emitInt32(0);
-        return;
+        throw std::runtime_error("Unsupported address-of expression at line " +
+                                 std::to_string(unop->line));
     }
     
     if (unop->op == "*") {
@@ -873,6 +1309,51 @@ void CodeGenerator::genUnaryOp(const UnaryOp* unop) {
         genExpression(unop->operand.get()); // This should push an address
         // Now we have address on stack, load value from that address
         emit(Opcode::LOAD_INDIRECT);
+        return;
+    }
+
+    if (unop->op == "!" ) {
+        genCondition(unop->operand.get());
+        std::string true_label = makeLabel("not_true");
+        std::string end_label = makeLabel("not_end");
+        emitJump(Opcode::JZ, true_label);
+        emit(Opcode::PUSH);
+        emitInt32(0);
+        emitJump(Opcode::JMP, end_label);
+        defineLabel(true_label);
+        emit(Opcode::PUSH);
+        emitInt32(1);
+        defineLabel(end_label);
+        return;
+    }
+
+    if (unop->op == "++" || unop->op == "--" ||
+        unop->op == "++_post" || unop->op == "--_post") {
+        if (unop->operand->kind != ASTNodeKind::IDENTIFIER) {
+            throw std::runtime_error("Increment/decrement currently requires a variable");
+        }
+        auto id = static_cast<const Identifier*>(unop->operand.get());
+        auto sym = findSymbol(id->name);
+        if (!sym) throw std::runtime_error("Unknown identifier '" + id->name + "'");
+        if (sym->is_float || sym->is_array) {
+            throw std::runtime_error("Increment/decrement currently supports integer variables only");
+        }
+        const bool postfix = unop->op.find("_post") != std::string::npos;
+        const bool increment = unop->op.rfind("++", 0) == 0;
+        genIdentifier(id);
+        if (postfix) emit(Opcode::DUP);
+        emit(Opcode::PUSH);
+        emitInt32(1);
+        emit(increment ? Opcode::ADD : Opcode::SUB);
+        if (!postfix) emit(Opcode::DUP);
+        if (sym->type == Symbol::PARAMETER) {
+            emit(Opcode::STORE_BP);
+            emitInt32(sym->offset);
+        } else {
+            emit(Opcode::PUSH);
+            emitInt32(sym->offset);
+            emit(Opcode::STORE);
+        }
         return;
     }
     
@@ -891,6 +1372,16 @@ void CodeGenerator::genUnaryOp(const UnaryOp* unop) {
         }
     } else if (unop->op == "+") {
         // Unary plus does nothing
+    } else if (unop->op == "~") {
+        emit(Opcode::PUSH);
+        emitInt32(0);
+        emit(Opcode::SWAP);
+        emit(Opcode::SUB);
+        emit(Opcode::PUSH);
+        emitInt32(1);
+        emit(Opcode::SUB);
+    } else {
+        throw std::runtime_error("Unsupported unary operator '" + unop->op + "'");
     }
 }
 
@@ -901,11 +1392,7 @@ void CodeGenerator::genCall(const CallExpr* call) {
         
         // Check if this is a constructor call (class/struct name)
         if (class_names.find(id->name) != class_names.end()) {
-            // Skip constructor calls - just push dummy value for now
-            // In a real implementation, this would allocate an object
-            emit(Opcode::PUSH);
-            emitInt32(0);
-            return;
+            throw std::runtime_error("Object construction is not supported by code generation");
         }
         
         // Special handling for print
@@ -958,7 +1445,10 @@ void CodeGenerator::genCall(const CallExpr* call) {
         // Regular function call. VM cdecl-style convention:
         // caller pushes arguments right-to-left and cleans them after RET.
         int arg_count = call->args.size();
-        std::string mangled_name = mangleFunctionName(id->name, arg_count);
+        std::vector<bool> argument_types;
+        argument_types.reserve(call->args.size());
+        for (const auto& arg : call->args) argument_types.push_back(isFloatExpr(arg.get()));
+        std::string mangled_name = mangleFunctionName(id->name, argument_types);
         auto sig_it = functions.find(mangled_name);
         const FunctionSignature* sig = (sig_it != functions.end()) ? &sig_it->second : nullptr;
 
@@ -996,7 +1486,9 @@ void CodeGenerator::genCall(const CallExpr* call) {
                 }
             }
         }
+        return;
     }
+    throw std::runtime_error("Only direct function calls are supported");
 }
 
 void CodeGenerator::genLiteral(const Literal* lit) {
@@ -1058,6 +1550,10 @@ void CodeGenerator::genIdentifier(const Identifier* id) {
     
     auto sym = findSymbol(id->name);
     if (sym) {
+        if (sym->is_struct_value) {
+            throw std::runtime_error("Struct value '" + id->name +
+                                     "' requires member access or address-of");
+        }
         if (sym->type == Symbol::VARIABLE) {
             if (sym->is_float) {
                 // Float variable: load from float_memory to FPU stack
@@ -1096,10 +1592,8 @@ void CodeGenerator::genIdentifier(const Identifier* id) {
             emitInt32(sym->address);
         }
     } else {
-        // Unknown identifier - might be external or C++ stdlib
-        // For now, just push 0 as placeholder
-        emit(Opcode::PUSH);
-        emitInt32(0);
+        throw std::runtime_error("Unknown identifier '" + id->name + "' at line " +
+                                 std::to_string(id->line));
     }
 }
 
@@ -1178,19 +1672,45 @@ bool CodeGenerator::isFloatExpr(const ASTNode* node) {
                 }
                 return false;
             }
+            if (bin->op == "<" || bin->op == ">" || bin->op == "<=" ||
+                bin->op == ">=" || bin->op == "==" || bin->op == "!=" ||
+                bin->op == "&&" || bin->op == "||" || bin->op == "<<" ||
+                bin->op == ">>") {
+                return false;
+            }
             return isFloatExpr(bin->left.get()) || isFloatExpr(bin->right.get());
         }
         case ASTNodeKind::CALL: {
             auto call = static_cast<const CallExpr*>(node);
             if (call->callee->kind != ASTNodeKind::IDENTIFIER) return false;
             auto id = static_cast<const Identifier*>(call->callee.get());
-            std::string mangled_name = mangleFunctionName(id->name, call->args.size());
+            std::vector<bool> argument_types;
+            argument_types.reserve(call->args.size());
+            for (const auto& arg : call->args) argument_types.push_back(isFloatExpr(arg.get()));
+            std::string mangled_name = mangleFunctionName(id->name, argument_types);
             auto it = functions.find(mangled_name);
             return it != functions.end() && it->second.returns_float;
         }
         case ASTNodeKind::UNARY_OP: {
             auto un = static_cast<const UnaryOp*>(node);
+            if (un->op == "!" || un->op == "~" || un->op == "&" ||
+                un->op == "*" || un->op == "new" || un->op == "delete" ||
+                un->op.find("++") != std::string::npos ||
+                un->op.find("--") != std::string::npos) {
+                return false;
+            }
             return isFloatExpr(un->operand.get());
+        }
+        case ASTNodeKind::CONDITIONAL: {
+            auto conditional = static_cast<const ConditionalExpr*>(node);
+            return isFloatExpr(conditional->thenExpr.get()) ||
+                   isFloatExpr(conditional->elseExpr.get());
+        }
+        case ASTNodeKind::MEMBER_ACCESS: {
+            auto member = static_cast<const MemberAccess*>(node);
+            const std::string owner_type = structTypeOf(member->object.get());
+            if (owner_type.empty()) return false;
+            return getStructField(owner_type, member->member).is_float;
         }
         default:
             return false;
@@ -1203,6 +1723,9 @@ std::string CodeGenerator::makeLabel(const std::string& prefix) {
 }
 
 void CodeGenerator::defineLabel(const std::string& label) {
+    if (labels[label].defined) {
+        throw std::runtime_error("Duplicate function or label definition: " + label);
+    }
     labels[label].address = currentAddress();
     labels[label].defined = true;
 }
@@ -1216,8 +1739,7 @@ void CodeGenerator::emitJump(Opcode op, const std::string& label) {
 void CodeGenerator::fixupLabels() {
     for (auto& [name, label] : labels) {
         if (!label.defined) {
-            Logger::error() << "Error: Undefined label: " << name << "\n";
-            continue;
+            throw std::runtime_error("Undefined function or label: " + name);
         }
         
         for (size_t pos : label.fixup_positions) {
@@ -1254,38 +1776,27 @@ std::string CodeGenerator::mangleFunctionName(const std::string& name, int param
 
 std::string CodeGenerator::mangleFunctionName(const std::string& name, 
     const std::vector<std::pair<std::vector<std::string>, std::string>>& params) {
-    // More sophisticated mangling based on parameter types
-    // Format: name_P<count>_<type1>_<type2>...
-    if (params.empty()) {
-        return name;
-    }
-    
-    std::string mangled = name + "_P" + std::to_string(params.size());
+    std::vector<bool> float_params;
+    float_params.reserve(params.size());
     for (const auto& param : params) {
-        if (!param.first.empty()) {
-            // Use first token of type (simplified)
-            std::string type = param.first[0];
-            // Shorten common types
-            if (type == "int") type = "i";
-            else if (type == "float") type = "f";
-            else if (type == "double") type = "d";
-            else if (type == "char") type = "c";
-            else if (type == "bool") type = "b";
-            else if (type == "void") type = "v";
-            else if (type == "std") type = "s";
-            // For pointers/references
-            if (param.first.size() > 1) {
-                if (param.first.back() == "*") type += "p";
-                if (param.first.back() == "&") type += "r";
-            }
-            mangled += "_" + type;
-        }
+        float_params.push_back(isFloatType(param.first));
     }
+    return mangleFunctionName(name, float_params);
+}
+
+std::string CodeGenerator::mangleFunctionName(const std::string& name,
+                                               const std::vector<bool>& params_float) {
+    if (params_float.empty()) return name;
+    std::string mangled = name + "_P" + std::to_string(params_float.size());
+    for (bool is_float : params_float) mangled += is_float ? "_f" : "_i";
     return mangled;
 }
 
 // Symbol table
-void CodeGenerator::addVariable(const std::string& name, int offset, bool is_array, bool is_heap_allocated, bool is_float) {
+void CodeGenerator::addVariable(const std::string& name, int offset, bool is_array,
+                                bool is_heap_allocated, bool is_float,
+                                const std::string& struct_type, bool is_struct_value,
+                                bool is_struct_pointer) {
     Symbol sym;
     sym.type = Symbol::VARIABLE;
     sym.offset = offset;
@@ -1294,6 +1805,10 @@ void CodeGenerator::addVariable(const std::string& name, int offset, bool is_arr
     sym.is_array = is_array;
     sym.is_heap_allocated = is_heap_allocated;
     sym.is_float = is_float;
+    sym.struct_type = struct_type;
+    sym.is_struct_value = is_struct_value;
+    sym.is_struct_pointer = is_struct_pointer;
+    rememberSymbolBeforeChange(name);
     symbols[name] = sym;
     
     Logger::debug() << "DBG addVariable: '" << name << "' offset=" << offset
@@ -1309,6 +1824,7 @@ void CodeGenerator::addParameter(const std::string& name, int offset) {
     sym.is_array = false;  // Will be updated for pointer/array params
     sym.is_heap_allocated = false;
     sym.is_float = false;
+    rememberSymbolBeforeChange(name);
     symbols[name] = sym;
 }
 
@@ -1321,6 +1837,7 @@ void CodeGenerator::addFunction(const std::string& name, int address, int param_
     sym.is_array = false;
     sym.is_heap_allocated = false;
     sym.is_float = false;
+    rememberSymbolBeforeChange(name);
     symbols[name] = sym;
 }
 
@@ -1405,11 +1922,27 @@ void CodeGenerator::dumpBytecode() const {
 }
 
 void CodeGenerator::enterScope() {
-    // For future: implement scoping
+    scope_changes.emplace_back();
 }
 
 void CodeGenerator::exitScope() {
-    // For future: implement scoping
+    if (scope_changes.empty()) {
+        throw std::runtime_error("Internal code-generation scope underflow");
+    }
+    for (const auto& [name, previous] : scope_changes.back()) {
+        if (previous) symbols[name] = *previous;
+        else symbols.erase(name);
+    }
+    scope_changes.pop_back();
+}
+
+void CodeGenerator::rememberSymbolBeforeChange(const std::string& name) {
+    if (scope_changes.empty()) return;
+    auto& changes = scope_changes.back();
+    if (changes.find(name) != changes.end()) return;
+    auto existing = symbols.find(name);
+    if (existing == symbols.end()) changes[name] = std::nullopt;
+    else changes[name] = existing->second;
 }
 
 
@@ -1449,6 +1982,9 @@ void CodeGenerator::genArraySubscript(const ArraySubscript* sub) {
             
             // Load value using indirect addressing
             emit(Opcode::LOAD_INDIRECT);
+            return;
         }
+        throw std::runtime_error("Unknown array '" + id->name + "'");
     }
+    throw std::runtime_error("Unsupported array subscript expression");
 }

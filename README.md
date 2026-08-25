@@ -20,6 +20,12 @@ cmake -S goc -B goc/build
 cmake --build goc/build
 ```
 
+Run the regression suite:
+
+```bash
+ctest --test-dir goc/build --output-on-failure
+```
+
 Compile and run an example:
 
 ```bash
@@ -76,12 +82,37 @@ The parser recognizes a wide set of C++ constructs, but the **code generator tar
 - `if`, `while`, `for`, and `return`
 - Functions + overload name mangling
 - Arrays/pointers with basic `new` allocation
+- C-style structs: named tags, `typedef struct`, brace initialization, copying,
+  nested values, struct pointers, and `.` / `->` field access
 - `std::cout << ...` chains and `std::cin >> ...`
 - Float/double expressions via the FPU stack
 
+### C-style structs
+
+Both tagged and anonymous typedef forms are supported:
+
+```cpp
+typedef struct Point Point;
+
+struct Point {
+    int x;
+    int y;
+};
+
+typedef struct {
+    float value;
+} Sample;
+```
+
+Struct variables support brace initialization, same-type copying, nested struct
+fields, pointers, address-of, and `.` / `->` member access. Struct pointers can
+be passed to functions. Arrays of structs, by-value struct parameters/returns,
+and nested aggregate initializer lists are not implemented yet and produce a
+compile-time error.
+
 ## Status & limitations
 
-This is a **beta** compiler. There is **no full semantic analysis** (e.g., complete type checking, scope validation, or advanced error recovery). Invalid programs may still compile and produce undefined behavior at runtime. The architecture is intentionally modular to keep the learning journey clear and extensible.
+This is a **beta** compiler. Lexical scopes and unresolved-name checks are implemented, but there is no complete semantic-analysis pass (for example, full type checking or advanced error recovery). Unsupported code-generation paths fail compilation instead of silently emitting placeholder values.
 
 ## Project layout
 

@@ -23,6 +23,7 @@ This project represents my **first deep dive into compiler engineering**, and **
   * variable declarations
   * arithmetic expressions
   * comparison operators
+  * C-style structs and `typedef struct` aliases
   * `while` loops
   * simple statements
   * `std::cout` output chains
@@ -167,13 +168,12 @@ Originally, the Virtual Machine backend was written in **NASM x86_64 assembly**,
 
 This project **skips full semantic analysis and performs no optimization passes**. As a result, the workflow may be unstable in edge cases — the compiler assumes valid code structure and may generate incorrect bytecode for ambiguous or invalid constructs.
 
-Current limitations due to missing semantic analysis:
+Current limitations due to incomplete semantic analysis:
 
 * No type-checking enforcement
-* Undeclared variables may not be caught correctly
-* No scope resolution rules
 * No validation of operator types
-* Potential undefined behavior during code generation
+* Limited implicit conversion and overload resolution
+* Local values use the VM's simple memory model rather than a complete C++ object model
 
 These parts are intentionally postponed to keep focus on architectural clarity and iterative learning.
 
@@ -232,16 +232,12 @@ But the implementation is entirely my own.
 
 ## 🛠️ Planned Features / Roadmap
 
-* Support for `if` / `else`
-* Functions and call stack
-* Return values
-* Local variable scopes
-* String literals
-* Real `std::cout << a << b` operator chaining
+* Complete semantic analysis and type checking
+* `break`, `continue`, `switch`, and exception semantics
+* Runtime class/object support
 * Optimizer pass
-* Disassembler for bytecode
 * Register-based VM option
-* Better error reporting
+* More precise source diagnostics and recovery
 
 ---
 
@@ -256,7 +252,7 @@ This is a personal educational project. Contributions are welcome, but please un
 
 ## 📜 License
 
-Open-source, free for learning, modification, and experimentation.
+No distribution license has been selected yet. Add a license file before publishing or accepting external contributions.
 
 ---
 
