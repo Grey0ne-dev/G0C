@@ -23,6 +23,7 @@ This project represents my **first deep dive into compiler engineering**, and **
   * variable declarations
   * arithmetic expressions
   * comparison operators
+  * C-style structs and `typedef struct` aliases
   * `while` loops
   * simple statements
   * `std::cout` output chains

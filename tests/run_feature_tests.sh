@@ -32,6 +32,9 @@ tests=(
     "overloads:12"
     "heap_reuse:729"
     $'literals:1A\n10'
+    "structs:67314"
+    "struct_tags:21.53.25"
+    "nested_structs:98"
 )
 
 for item in "${tests[@]}"; do
@@ -55,6 +58,9 @@ negative_tests=(
     "missing_function"
     "missing_main"
     "scope_leak"
+    "unknown_struct_field"
+    "recursive_struct_value"
+    "wrong_struct_member_operator"
 )
 
 for name in "${negative_tests[@]}"; do

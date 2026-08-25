@@ -144,6 +144,12 @@ void ClassDecl::dump(int indent) const {
 
 void StructDecl::dump(int indent) const {
     Logger::out() << indentStr(indent) << "StructDecl(" << structName << ") [" << line << ":" << column << "]\n";
+    if (!aliasName.empty()) {
+        Logger::out() << indentStr(indent + 1) << "Typedef: " << aliasName << "\n";
+    }
+    if (isForwardDeclaration) {
+        Logger::out() << indentStr(indent + 1) << "Forward declaration\n";
+    }
     for (const auto &m : members) {
         if (m) m->dump(indent+1);
     }
@@ -306,9 +312,17 @@ std::vector<std::string> Parser::parseType() {
 
     // Base type - type specifier OR user-defined type (identifier)
     if (isTypeSpecifier()) {
-        typeTokens.push_back(peek().value);
-        Logger::debug() << "DEBUG parseType: Consumed type specifier '" << peek().value << "'" << std::endl;
+        const std::string specifier = peek().value;
+        typeTokens.push_back(specifier);
+        Logger::debug() << "DEBUG parseType: Consumed type specifier '" << specifier << "'" << std::endl;
         advance();
+        if (specifier == "struct") {
+            if (!check(TokenType::IDENTIFIER)) {
+                error(peek(), "Expected struct tag after 'struct'");
+            }
+            typeTokens.push_back(peek().value);
+            advance();
+        }
     } else if (check(TokenType::IDENTIFIER) || (check(TokenType::KEYWORD) && (peek().value == "typename" || peek().value == "class"))) {
         // Build qualified name and consume nested template arguments as part of the type
         std::string fullname = peek().value;
@@ -400,8 +414,14 @@ std::vector<std::string> Parser::parseTypeForLookahead(size_t& pos) const {
         tempPos++;
     }
 
-    // Base type: support qualified names and nested template args
-    while (tempPos < tokens.size() &&
+    // A C struct tag is a two-token type: "struct Name".
+    if (tempPos < tokens.size() && tokens[tempPos].type == TokenType::TYPE_SPECIFIER &&
+        tokens[tempPos].value == "struct") {
+        typeTokens.push_back(tokens[tempPos++].value);
+        if (tempPos < tokens.size() && tokens[tempPos].type == TokenType::IDENTIFIER) {
+            typeTokens.push_back(tokens[tempPos++].value);
+        }
+    } else while (tempPos < tokens.size() &&
            (tokens[tempPos].type == TokenType::TYPE_SPECIFIER ||
             tokens[tempPos].type == TokenType::IDENTIFIER ||
             (tokens[tempPos].type == TokenType::KEYWORD && (tokens[tempPos].value == "typename" || tokens[tempPos].value == "class")))) {
@@ -488,6 +508,14 @@ ASTNodePtr Parser::parseDeclarationOrStatement() {
         return parseAccessSpecifier();
     }
 
+    if (t.value == "typedef") {
+        if (idx + 1 < tokens.size() && tokens[idx + 1].value == "struct") {
+            advance();
+            return parseStruct(true);
+        }
+        error(t, "Only typedef struct declarations are currently supported");
+    }
+
     // STATEMENT keywords - handle these first!
     if (t.type == TokenType::KEYWORD) {
         if (t.value == "return" || t.value == "if" || t.value == "while" ||
@@ -507,7 +535,14 @@ ASTNodePtr Parser::parseDeclarationOrStatement() {
         }
         // Struct declaration
         if (t.value == "struct") {
-            return parseStruct();
+            const bool hasBody =
+                (idx + 1 < tokens.size() && tokens[idx + 1].type == TokenType::LEFT_BRACE) ||
+                (idx + 2 < tokens.size() && tokens[idx + 1].type == TokenType::IDENTIFIER &&
+                 tokens[idx + 2].type == TokenType::LEFT_BRACE);
+            const bool isForward =
+                idx + 2 < tokens.size() && tokens[idx + 1].type == TokenType::IDENTIFIER &&
+                tokens[idx + 2].type == TokenType::SEMICOLON;
+            if (hasBody || isForward) return parseStruct(false);
         }
         // Namespace declaration
         if (t.value == "namespace") {
@@ -598,14 +633,31 @@ ASTNodePtr Parser::parseClass() {
     return classDecl;
 }
 
-ASTNodePtr Parser::parseStruct() {
+ASTNodePtr Parser::parseStruct(bool isTypedef) {
     Token structTok = peek(); advance(); // consume 'struct'
 
-    if (!check(TokenType::IDENTIFIER))
+    std::string name;
+    if (check(TokenType::IDENTIFIER)) {
+        name = peek().value;
+        advance();
+    } else if (!isTypedef) {
         error(peek(), "Expected struct name");
+    }
+    auto structDecl = std::make_unique<StructDecl>(name, structTok.line, structTok.column);
 
-    Token nameTok = peek(); advance();
-    auto structDecl = std::make_unique<StructDecl>(nameTok.value, structTok.line, structTok.column);
+    if (!check(TokenType::LEFT_BRACE)) {
+        if (name.empty()) error(peek(), "Anonymous forward struct declaration is invalid");
+        if (isTypedef) {
+            if (!check(TokenType::IDENTIFIER)) {
+                error(peek(), "Expected typedef name after struct tag");
+            }
+            structDecl->aliasName = peek().value;
+            advance();
+        }
+        structDecl->isForwardDeclaration = true;
+        consume(TokenType::SEMICOLON, "Expected ';' after struct forward declaration");
+        return structDecl;
+    }
 
     consume(TokenType::LEFT_BRACE, "Expected '{' after struct name");
 
@@ -615,6 +667,13 @@ ASTNodePtr Parser::parseStruct() {
     }
 
     consume(TokenType::RIGHT_BRACE, "Expected '}' after struct body");
+    if (isTypedef) {
+        if (!check(TokenType::IDENTIFIER)) {
+            error(peek(), "Expected typedef name after struct definition");
+        }
+        structDecl->aliasName = peek().value;
+        advance();
+    }
     consume(TokenType::SEMICOLON, "Expected ';' after struct declaration");
 
     return structDecl;

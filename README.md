@@ -82,8 +82,33 @@ The parser recognizes a wide set of C++ constructs, but the **code generator tar
 - `if`, `while`, `for`, and `return`
 - Functions + overload name mangling
 - Arrays/pointers with basic `new` allocation
+- C-style structs: named tags, `typedef struct`, brace initialization, copying,
+  nested values, struct pointers, and `.` / `->` field access
 - `std::cout << ...` chains and `std::cin >> ...`
 - Float/double expressions via the FPU stack
+
+### C-style structs
+
+Both tagged and anonymous typedef forms are supported:
+
+```cpp
+typedef struct Point Point;
+
+struct Point {
+    int x;
+    int y;
+};
+
+typedef struct {
+    float value;
+} Sample;
+```
+
+Struct variables support brace initialization, same-type copying, nested struct
+fields, pointers, address-of, and `.` / `->` member access. Struct pointers can
+be passed to functions. Arrays of structs, by-value struct parameters/returns,
+and nested aggregate initializer lists are not implemented yet and produce a
+compile-time error.
 
 ## Status & limitations
 

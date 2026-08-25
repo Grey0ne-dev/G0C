@@ -12,7 +12,7 @@ Cross-platform C++ compiler frontend with stack-based bytecode VM.
 ### 2. Virtual Machine (`vm`)
 - **VM** (`vm.cpp/.h`): Stack-based bytecode interpreter
 - **Cross-platform I/O**: Works on Windows (_WIN32) and Unix/Linux
-- **Features**: Functions, variables, arithmetic, I/O, arrays, pointers, and floating-point operations
+- **Features**: Functions, variables, arithmetic, I/O, arrays, pointers, C-style structs, and floating-point operations
 
 ## Building
 

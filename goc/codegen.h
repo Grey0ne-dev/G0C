@@ -76,6 +76,9 @@ struct Symbol {
     bool is_array;   // True if this is an array or pointer
     bool is_heap_allocated; // True if allocated with "new"
     bool is_float;   // True if this is a float/double variable
+    bool is_struct_value = false;
+    bool is_struct_pointer = false;
+    std::string struct_type;
 };
 
 struct FunctionSignature {
@@ -106,6 +109,23 @@ private:
     std::unordered_set<std::string> class_names;  // Track class/struct names
     std::vector<std::string> string_table;        // String literals
     std::vector<std::unordered_map<std::string, std::optional<Symbol>>> scope_changes;
+    struct StructField {
+        std::string name;
+        std::string struct_type;
+        int offset = 0;
+        int size = 1;
+        bool is_float = false;
+        bool is_pointer = false;
+        bool is_array = false;
+    };
+    struct StructLayout {
+        std::string name;
+        int size = 0;
+        std::vector<StructField> fields;
+    };
+    std::unordered_map<std::string, StructLayout> struct_layouts;
+    std::unordered_map<std::string, std::string> struct_aliases;
+    std::unordered_map<std::string, const StructDecl*> struct_declarations;
     int current_offset;     // Current stack offset
     int next_memory_addr;   // Next available memory address
     
@@ -129,6 +149,9 @@ private:
     void genArraySubscript(const ArraySubscript* sub);
     void genConditional(const ConditionalExpr* conditional);
     void genCondition(const ASTNode* node);
+    void genMemberAccess(const MemberAccess* member);
+    void genMemberAddress(const MemberAccess* member);
+    void genMemberAssignment(const MemberAccess* member, const ASTNode* value);
     
     // Helper methods
     void emit(Opcode op);
@@ -162,11 +185,24 @@ private:
     // Symbol table management
     void enterScope();
     void exitScope();
-    void addVariable(const std::string& name, int offset, bool is_array = false, bool is_heap_allocated = false, bool is_float = false);
+    void addVariable(const std::string& name, int offset, bool is_array = false,
+                     bool is_heap_allocated = false, bool is_float = false,
+                     const std::string& struct_type = "", bool is_struct_value = false,
+                     bool is_struct_pointer = false);
     void addParameter(const std::string& name, int offset);
     void addFunction(const std::string& name, int address, int param_count);
     Symbol* findSymbol(const std::string& name);
     void rememberSymbolBeforeChange(const std::string& name);
+
+    // C-style struct layout and member helpers
+    void collectStructLayouts(const Program& prog);
+    const StructLayout& buildStructLayout(const std::string& name,
+                                          std::unordered_set<std::string>& visiting);
+    std::string resolveStructType(const std::vector<std::string>& typeTokens) const;
+    const StructField& getStructField(const std::string& structType,
+                                      const std::string& fieldName) const;
+    std::string structTypeOf(const ASTNode* node) const;
+    bool isStructPointerExpr(const ASTNode* node) const;
 
     // Float helpers
     static bool isFloatLiteralStr(const std::string& s);

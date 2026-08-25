@@ -212,8 +212,11 @@ struct ClassDecl : Declaration {
 
 struct StructDecl : Declaration {
     std::string structName;
+    std::string aliasName;
+    bool isForwardDeclaration = false;
     std::vector<ASTNodePtr> members;
-    StructDecl(const std::string& name, int l, int c) : Declaration(ASTNodeKind::STRUCT_DECL, l, c), structName(name) {}
+    StructDecl(const std::string& name, int l, int c)
+        : Declaration(ASTNodeKind::STRUCT_DECL, l, c), structName(name) {}
     void dump(int indent = 0) const override;
 };
 
@@ -308,7 +311,7 @@ private:
 
     // C++ specific parsing
     ASTNodePtr parseClass();
-    ASTNodePtr parseStruct();
+    ASTNodePtr parseStruct(bool isTypedef = false);
     ASTNodePtr parseNamespace();
     ASTNodePtr parseTemplate();
     ASTNodePtr parseFunctionDeclaration();
