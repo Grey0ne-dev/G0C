@@ -108,7 +108,7 @@ private:
     void advance();
     void reportError(const std::string& message, int errorLine, int errorColumn);
     std::string tokenTypeToString(TokenType type) const;
-    Token categorizeKeyword(const std::string& value, int line, int column);
+    Token categorizeKeyword(const std::string& value, int line_number, int column_number);
 
 public:
     Lexer(const std::string& input, const std::string& file = "");

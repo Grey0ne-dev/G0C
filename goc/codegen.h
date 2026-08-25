@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <cstdint>
+#include <optional>
 
 enum class Opcode : uint8_t {
     PUSH        = 0x01,
@@ -104,6 +105,7 @@ private:
     std::unordered_map<std::string, FunctionSignature> functions;
     std::unordered_set<std::string> class_names;  // Track class/struct names
     std::vector<std::string> string_table;        // String literals
+    std::vector<std::unordered_map<std::string, std::optional<Symbol>>> scope_changes;
     int current_offset;     // Current stack offset
     int next_memory_addr;   // Next available memory address
     
@@ -125,6 +127,8 @@ private:
     void genLiteral(const Literal* lit);
     void genIdentifier(const Identifier* id);
     void genArraySubscript(const ArraySubscript* sub);
+    void genConditional(const ConditionalExpr* conditional);
+    void genCondition(const ASTNode* node);
     
     // Helper methods
     void emit(Opcode op);
@@ -153,6 +157,7 @@ private:
     // Name mangling for function overloading
     std::string mangleFunctionName(const std::string& name, int param_count);
     std::string mangleFunctionName(const std::string& name, const std::vector<std::pair<std::vector<std::string>, std::string>>& params);
+    std::string mangleFunctionName(const std::string& name, const std::vector<bool>& params_float);
     
     // Symbol table management
     void enterScope();
@@ -161,6 +166,7 @@ private:
     void addParameter(const std::string& name, int offset);
     void addFunction(const std::string& name, int address, int param_count);
     Symbol* findSymbol(const std::string& name);
+    void rememberSymbolBeforeChange(const std::string& name);
 
     // Float helpers
     static bool isFloatLiteralStr(const std::string& s);

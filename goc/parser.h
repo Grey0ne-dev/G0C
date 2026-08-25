@@ -28,6 +28,8 @@ enum class ASTNodeKind {
     CALL,
     MEMBER_ACCESS,
     ARRAY_SUBSCRIPT,  // NEW: for arr[index]
+    CONDITIONAL,
+    INITIALIZER_LIST,
 
     // C++ specific
     CLASS_DECL,
@@ -122,6 +124,23 @@ struct ArraySubscript : Expr {
     ASTNodePtr index;
     ArraySubscript(ASTNodePtr arr, ASTNodePtr idx, int l, int c)
         : Expr(ASTNodeKind::ARRAY_SUBSCRIPT, l, c), array(std::move(arr)), index(std::move(idx)) {}
+    void dump(int indent = 0) const override;
+};
+
+struct ConditionalExpr : Expr {
+    ASTNodePtr condition;
+    ASTNodePtr thenExpr;
+    ASTNodePtr elseExpr;
+    ConditionalExpr(ASTNodePtr cond, ASTNodePtr thenNode, ASTNodePtr elseNode, int l, int c)
+        : Expr(ASTNodeKind::CONDITIONAL, l, c), condition(std::move(cond)),
+          thenExpr(std::move(thenNode)), elseExpr(std::move(elseNode)) {}
+    void dump(int indent = 0) const override;
+};
+
+struct InitializerList : Expr {
+    std::vector<ASTNodePtr> elements;
+    InitializerList(std::vector<ASTNodePtr> values, int l, int c)
+        : Expr(ASTNodeKind::INITIALIZER_LIST, l, c), elements(std::move(values)) {}
     void dump(int indent = 0) const override;
 };
 
@@ -309,6 +328,7 @@ private:
     ASTNodePtr parseFactor();
     ASTNodePtr parseUnary();
     ASTNodePtr parseCallAndPrimary();
+    ASTNodePtr parseInitializerList();
 
     ASTNodePtr parseShift();
     ASTNodePtr parseAdditive();

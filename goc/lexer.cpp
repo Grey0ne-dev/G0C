@@ -1,6 +1,31 @@
 #include "lexer.h"
 #include "logger.h"
 
+namespace {
+std::string decodeEscapes(const std::string& raw) {
+    std::string decoded;
+    decoded.reserve(raw.size());
+    for (size_t i = 0; i < raw.size(); ++i) {
+        if (raw[i] != '\\' || i + 1 >= raw.size()) {
+            decoded.push_back(raw[i]);
+            continue;
+        }
+        const char escaped = raw[++i];
+        switch (escaped) {
+            case 'n': decoded.push_back('\n'); break;
+            case 'r': decoded.push_back('\r'); break;
+            case 't': decoded.push_back('\t'); break;
+            case '0': decoded.push_back('\0'); break;
+            case '\\': decoded.push_back('\\'); break;
+            case '\'': decoded.push_back('\''); break;
+            case '"': decoded.push_back('"'); break;
+            default: decoded.push_back(escaped); break;
+        }
+    }
+    return decoded;
+}
+}
+
 // Constructor
 Lexer::Lexer(const std::string& input, const std::string& file)
     : source(input), position(0), line(1), column(1), error_flag(false), filename(file) {
@@ -77,7 +102,9 @@ Lexer::Lexer(const std::string& input, const std::string& file)
         {"struct", TokenType::TYPE_SPECIFIER},
         {"union", TokenType::TYPE_SPECIFIER},
         {"enum", TokenType::TYPE_SPECIFIER},
-        {"typedef", TokenType::TYPE_SPECIFIER}
+        {"typedef", TokenType::TYPE_SPECIFIER},
+        {"bool", TokenType::TYPE_SPECIFIER},
+        {"wchar_t", TokenType::TYPE_SPECIFIER}
     };
 
     // Access specifiers
@@ -134,27 +161,27 @@ Lexer::Lexer(const std::string& input, const std::string& file)
 }
 
 // Categorize keywords for better parsing
-Token Lexer::categorizeKeyword(const std::string& value, int line, int column) {
+Token Lexer::categorizeKeyword(const std::string& value, int line_number, int column_number) {
     // Check access specifiers first
     auto access_it = access_specifiers.find(value);
     if (access_it != access_specifiers.end()) {
-        return Token(access_it->second, value, line, column);
+        return Token(access_it->second, value, line_number, column_number);
     }
 
     // Check type keywords
     auto type_it = type_keywords.find(value);
     if (type_it != type_keywords.end()) {
-        return Token(type_it->second, value, line, column);
+        return Token(type_it->second, value, line_number, column_number);
     }
 
     // Check other keywords
     auto keyword_it = keywords.find(value);
     if (keyword_it != keywords.end()) {
-        return Token(keyword_it->second, value, line, column);
+        return Token(keyword_it->second, value, line_number, column_number);
     }
 
     // Not a keyword
-    return Token(TokenType::IDENTIFIER, value, line, column);
+    return Token(TokenType::IDENTIFIER, value, line_number, column_number);
 }
 
 // Main analysis method
@@ -172,7 +199,6 @@ std::vector<Token> Lexer::tokenize() {
             break;
         }
 
-        char current = source[position];
         Token token = getNextToken();
 
         if (token.type != TokenType::UNKNOWN) {
@@ -422,7 +448,7 @@ Token Lexer::readString() {
         reportError("Unterminated string literal", startLine, startColumn);
     }
 
-    std::string value = source.substr(start + 1, position - start - 2);
+    std::string value = decodeEscapes(source.substr(start + 1, position - start - 2));
     return Token(TokenType::STRING, value, startLine, startColumn);
 }
 
@@ -458,7 +484,10 @@ Token Lexer::readCharacter() {
         reportError("Unterminated character literal", startLine, startColumn);
     }
 
-    std::string value = source.substr(start + 1, position - start - 2);
+    std::string value = decodeEscapes(source.substr(start + 1, position - start - 2));
+    if (value.size() != 1) {
+        reportError("Character literal must contain exactly one character", startLine, startColumn);
+    }
     return Token(TokenType::CHARACTER, value, startLine, startColumn);
 }
 

@@ -57,6 +57,20 @@ void ArraySubscript::dump(int indent) const {
     }
 }
 
+void ConditionalExpr::dump(int indent) const {
+    Logger::out() << indentStr(indent) << "ConditionalExpr [" << line << ":" << column << "]\n";
+    if (condition) condition->dump(indent + 1);
+    if (thenExpr) thenExpr->dump(indent + 1);
+    if (elseExpr) elseExpr->dump(indent + 1);
+}
+
+void InitializerList::dump(int indent) const {
+    Logger::out() << indentStr(indent) << "InitializerList [" << line << ":" << column << "]\n";
+    for (const auto& element : elements) {
+        if (element) element->dump(indent + 1);
+    }
+}
+
 void ExprStmt::dump(int indent) const {
     Logger::out() << indentStr(indent) << "ExprStmt [" << line << ":" << column << "]\n";
     if (expr) expr->dump(indent+1);
@@ -387,7 +401,6 @@ std::vector<std::string> Parser::parseTypeForLookahead(size_t& pos) const {
     }
 
     // Base type: support qualified names and nested template args
-    bool hasType = false;
     while (tempPos < tokens.size() &&
            (tokens[tempPos].type == TokenType::TYPE_SPECIFIER ||
             tokens[tempPos].type == TokenType::IDENTIFIER ||
@@ -420,8 +433,6 @@ std::vector<std::string> Parser::parseTypeForLookahead(size_t& pos) const {
         }
 
         typeTokens.push_back(fullname);
-        hasType = true;
-
         if (tempPos < tokens.size() &&
             tokens[tempPos].type == TokenType::TYPE_SPECIFIER &&
             (tokens[tempPos].value == "long" || tokens[tempPos].value == "short" ||
@@ -945,14 +956,7 @@ ASTNodePtr Parser::parseVarDeclaration() {
                 Logger::debug() << "DEBUG: Found = initializer after array declarator" << std::endl;
                 advance();
                 if (check(TokenType::LEFT_BRACE)) {
-                    Token ob = peek(); advance();
-                    std::string contents;
-                    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
-                        contents += peek().value;
-                        advance();
-                    }
-                    consume(TokenType::RIGHT_BRACE, "Expected '}' after initializer list");
-                    init = std::make_unique<Literal>(contents, ob.line, ob.column, TokenType::LEFT_BRACE);
+                    init = parseInitializerList();
                 } else {
                     init = parseExpression();
                 }
@@ -963,15 +967,7 @@ ASTNodePtr Parser::parseVarDeclaration() {
             Logger::debug() << "DEBUG: Found = initializer" << std::endl;
             advance();
             if (check(TokenType::LEFT_BRACE)) {
-                Token ob = peek(); advance();
-                // Consume until right brace for now
-                std::string contents;
-                while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
-                    contents += peek().value;
-                    advance();
-                }
-                consume(TokenType::RIGHT_BRACE, "Expected '}' after initializer list");
-                init = std::make_unique<Literal>(contents, ob.line, ob.column, TokenType::LEFT_BRACE);
+                init = parseInitializerList();
             } else {
                 init = parseExpression();
             }
@@ -1183,9 +1179,23 @@ ASTNodePtr Parser::parseConditional() {
         ASTNodePtr thenExpr = parseExpression();
         consume(TokenType::COLON, "Expected ':' in conditional expression");
         ASTNodePtr elseExpr = parseExpression();
-        return std::make_unique<BinaryOp>("?:", std::move(thenExpr), std::move(elseExpr), q.line, q.column);
+        return std::make_unique<ConditionalExpr>(std::move(cond), std::move(thenExpr),
+                                                 std::move(elseExpr), q.line, q.column);
     }
     return cond;
+}
+
+ASTNodePtr Parser::parseInitializerList() {
+    Token open = peek();
+    consume(TokenType::LEFT_BRACE, "Expected '{' to start initializer list");
+    std::vector<ASTNodePtr> elements;
+    if (!check(TokenType::RIGHT_BRACE)) {
+        do {
+            elements.push_back(parseExpression());
+        } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_BRACE, "Expected '}' after initializer list");
+    return std::make_unique<InitializerList>(std::move(elements), open.line, open.column);
 }
 
 // NEW: Add shift operators (<<, >>)
@@ -1321,7 +1331,8 @@ ASTNodePtr Parser::parseUnary() {
     
     if (check(TokenType::OPERATOR) && (peek().value == "!" || peek().value == "-" ||
                                        peek().value == "+" || peek().value == "*" ||
-                                       peek().value == "&" || peek().value == "~")) {
+                                       peek().value == "&" || peek().value == "~" ||
+                                       peek().value == "++" || peek().value == "--")) {
         Token op = peek(); advance();
         ASTNodePtr operand = parseUnary();
         return std::make_unique<UnaryOp>(op.value, std::move(operand), op.line, op.column);
@@ -1355,6 +1366,12 @@ ASTNodePtr Parser::parseCallAndPrimary() {
         TokenType litType = t.type;
         advance();
         return std::make_unique<Literal>(t.value, t.line, t.column, litType);
+    }
+
+    if (t.type == TokenType::KEYWORD && (t.value == "true" || t.value == "false")) {
+        advance();
+        return std::make_unique<Literal>(t.value == "true" ? "1" : "0", t.line, t.column,
+                                         TokenType::NUMBER);
     }
 
     // Identifiers

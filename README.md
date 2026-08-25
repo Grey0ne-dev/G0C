@@ -20,6 +20,12 @@ cmake -S goc -B goc/build
 cmake --build goc/build
 ```
 
+Run the regression suite:
+
+```bash
+ctest --test-dir goc/build --output-on-failure
+```
+
 Compile and run an example:
 
 ```bash
@@ -81,7 +87,7 @@ The parser recognizes a wide set of C++ constructs, but the **code generator tar
 
 ## Status & limitations
 
-This is a **beta** compiler. There is **no full semantic analysis** (e.g., complete type checking, scope validation, or advanced error recovery). Invalid programs may still compile and produce undefined behavior at runtime. The architecture is intentionally modular to keep the learning journey clear and extensible.
+This is a **beta** compiler. Lexical scopes and unresolved-name checks are implemented, but there is no complete semantic-analysis pass (for example, full type checking or advanced error recovery). Unsupported code-generation paths fail compilation instead of silently emitting placeholder values.
 
 ## Project layout
 

@@ -8,10 +8,9 @@
 
 VirtualMachine::VirtualMachine() 
     : instruction_pointer(0), halted(false), error_flag(false),
-      debug_mode(false), base_pointer(0), next_object_id(1),
-      cmp_flag(0), instruction_count(0), max_stack_size(0),
-      fpu_top(0),
-      heap_start_addr(10000) {  // Heap starts at address 10000
+      debug_mode(false), base_pointer(0), heap_start_addr(10000),
+      next_object_id(1), cmp_flag(0), fpu_top(0),
+      instruction_count(0), max_stack_size(0) {
     memory.resize(1024, 0);  // 1KB initial static memory
     heap.resize(4096, 0);    // 4KB initial heap
     float_memory.resize(1024, 0.0f);
@@ -101,6 +100,8 @@ void VirtualMachine::reset() {
     std::fill(fpu_regs, fpu_regs + 8, 0.0f);
     std::fill(float_memory.begin(), float_memory.end(), 0.0f);
     std::fill(memory.begin(), memory.end(), 0);
+    std::fill(heap.begin(), heap.end(), 0);
+    heap_blocks.clear();
 }
 
 void VirtualMachine::run() {
@@ -613,8 +614,14 @@ void VirtualMachine::storeMemory(int32_t addr, int32_t value) {
     // Check if it's a heap address
     if (isHeapAddress(addr)) {
         size_t heap_offset = static_cast<size_t>(addr - heap_start_addr);
-        if (heap_offset >= heap.size()) {
-            heap.resize(heap_offset + 1024, 0);
+        const auto block = std::find_if(heap_blocks.begin(), heap_blocks.end(),
+            [heap_offset](const HeapBlock& candidate) {
+                return candidate.allocated && heap_offset >= candidate.start &&
+                       heap_offset - candidate.start < candidate.size;
+            });
+        if (block == heap_blocks.end() || heap_offset >= heap.size()) {
+            error("Heap memory write outside an allocated block");
+            return;
         }
         heap[heap_offset] = value;
     } else {
@@ -635,8 +642,13 @@ int32_t VirtualMachine::loadMemory(int32_t addr) {
     // Check if it's a heap address
     if (isHeapAddress(addr)) {
         size_t heap_offset = static_cast<size_t>(addr - heap_start_addr);
-        if (heap_offset >= heap.size()) {
-            error("Heap memory access out of bounds");
+        const auto block = std::find_if(heap_blocks.begin(), heap_blocks.end(),
+            [heap_offset](const HeapBlock& candidate) {
+                return candidate.allocated && heap_offset >= candidate.start &&
+                       heap_offset - candidate.start < candidate.size;
+            });
+        if (block == heap_blocks.end() || heap_offset >= heap.size()) {
+            error("Heap memory read outside an allocated block");
             return 0;
         }
         return heap[heap_offset];
@@ -652,34 +664,44 @@ int32_t VirtualMachine::loadMemory(int32_t addr) {
 
 int32_t VirtualMachine::allocateHeap(size_t size) {
     // First-fit allocation strategy
-    for (auto& block : heap_blocks) {
+    for (size_t i = 0; i < heap_blocks.size(); ++i) {
+        auto& block = heap_blocks[i];
         if (!block.allocated && block.size >= size) {
             // Found a free block that fits
             if (block.size > size) {
                 // Split the block
-                HeapBlock new_block;
-                new_block.start = block.start + size;
-                new_block.size = block.size - size;
-                new_block.allocated = false;
-                heap_blocks.push_back(new_block);
+                const size_t remainder_start = block.start + size;
+                const size_t remainder_size = block.size - size;
                 block.size = size;
+                block.allocated = true;
+                // push_back may reallocate heap_blocks, so do not retain or use
+                // a reference to block after this point.
+                heap_blocks.push_back({remainder_start, remainder_size, false});
+            } else {
+                block.allocated = true;
             }
-            block.allocated = true;
-            
+
+            const size_t allocated_start = heap_blocks[i].start;
+            const size_t allocated_size = heap_blocks[i].size;
             // Ensure heap is large enough
-            if (block.start + block.size > heap.size()) {
-                heap.resize(block.start + block.size + 1024, 0);
+            if (allocated_start + allocated_size > heap.size()) {
+                heap.resize(allocated_start + allocated_size + 1024, 0);
             }
-            
-            return static_cast<int32_t>(heap_start_addr + block.start);
+
+            return static_cast<int32_t>(heap_start_addr + allocated_start);
         }
     }
     
     // No suitable free block found, allocate at the end
     size_t new_start = 0;
-    if (!heap_blocks.empty()) {
-        auto& last = heap_blocks.back();
-        new_start = last.start + last.size;
+    for (const auto& block : heap_blocks) {
+        new_start = std::max(new_start, block.start + block.size);
+    }
+    if (new_start > static_cast<size_t>(std::numeric_limits<int32_t>::max()) -
+                        heap_start_addr ||
+        size > static_cast<size_t>(std::numeric_limits<int32_t>::max()) -
+                   heap_start_addr - new_start) {
+        return -1;
     }
     
     HeapBlock new_block;
